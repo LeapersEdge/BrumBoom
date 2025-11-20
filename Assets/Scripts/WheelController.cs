@@ -22,8 +22,12 @@ public class WheelController : MonoBehaviour
     private float currentBrakeForce = 0f;
     private float currentSteeringAngle = 0f;
 
+    private void Start()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
 
-    // Start is called before the first frame update
     private void FixedUpdate()
     {
         float moveInput = Input.GetAxis("Vertical");
