@@ -9,7 +9,7 @@ public class Health : MonoBehaviour {
 	public float respawnHealthPoints = 1f;		//base health points
 	
 	public int numberOfLives = 1;					//lives and variables for respawning
-	public bool isAlive = true;	
+	public bool isAlive = true; 
 
 	public GameObject explosionPrefab;
 	
@@ -66,9 +66,10 @@ public class Health : MonoBehaviour {
 	}
 	
 	public void ApplyDamage(float amount)
-	{	
-		healthPoints = healthPoints - amount;	
-	}
+	{
+		healthPoints = healthPoints - amount;
+		Debug.Log("Damage applied: " + amount + ". Current HP: " + healthPoints);
+    }
 	
 	public void ApplyHeal(float amount)
 	{
