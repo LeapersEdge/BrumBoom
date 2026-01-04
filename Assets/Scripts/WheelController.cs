@@ -20,7 +20,6 @@ public class WheelController : MonoBehaviour
 
     [Header("Networking")]
     public bool useExternalInput = false;
-    [SerializeField] private bool lockCursorOnStart = false;
 
     private float currentAcceleration = 0f;
     private float currentBrakeForce = 0f;
@@ -33,10 +32,8 @@ public class WheelController : MonoBehaviour
 
     private void Start()
     {
-        if (lockCursorOnStart)
-            LockCursor();
-        else
-            UnlockCursor();
+        // Always lock cursor when gameplay starts (pre-networked behaviour)
+        LockCursor();
     }
 
     private void FixedUpdate()

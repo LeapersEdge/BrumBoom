@@ -9,6 +9,8 @@ public class GunController : MonoBehaviour
     [SerializeField] private Transform gunTransform;
     [SerializeField] private Transform muzzleTransform;
 
+    private Fusion.NetworkObject _netObj;
+
     [Header("Aiming")]
     [SerializeField] private float rotationSpeed = 5f;
 
@@ -33,6 +35,8 @@ public class GunController : MonoBehaviour
 
     private void Awake()
     {
+        _netObj = GetComponentInParent<Fusion.NetworkObject>();
+
         // Ensure hitMask excludes LocalPlayer layer
         int localLayer = LayerMask.NameToLayer(localPlayerLayerName);
         if (localLayer >= 0)
@@ -47,6 +51,8 @@ public class GunController : MonoBehaviour
 
     private void Start()
     {
+        TryResolveCamera();
+
         // IMPORTANT in multiplayer: only run this on the local player instance.
         int localLayer = LayerMask.NameToLayer(localPlayerLayerName);
         if (localLayer < 0) return;
@@ -58,6 +64,16 @@ public class GunController : MonoBehaviour
 
     private void Update()
     {
+        bool isLocal = _netObj == null || _netObj.HasInputAuthority;
+        if (!isLocal) return;
+
+        if (cameraTransform == null || gameplayCamera == null)
+        {
+            TryResolveCamera();
+            if (cameraTransform == null || gameplayCamera == null)
+                return;
+        }
+
         Vector3 viewDir = new Vector3(cameraTransform.position.x, playerTransform.position.y, cameraTransform.position.z) - playerTransform.position;
         gunTransform.forward = Vector3.Slerp(gunTransform.forward, viewDir.normalized, rotationSpeed * Time.deltaTime);
 
@@ -126,5 +142,21 @@ public class GunController : MonoBehaviour
         if (col != null) Destroy(col);
 
         Destroy(orb, debugOrbLifetime);
+    }
+
+    private void TryResolveCamera()
+    {
+        if (gameplayCamera == null)
+        {
+            // First try camera on this prefab (active or inactive)
+            gameplayCamera = GetComponentInParent<Camera>(includeInactive: true);
+            if (gameplayCamera == null)
+                gameplayCamera = GetComponentInChildren<Camera>(includeInactive: true);
+            if (gameplayCamera == null)
+                gameplayCamera = Camera.main;
+        }
+
+        if (gameplayCamera != null && cameraTransform == null)
+            cameraTransform = gameplayCamera.transform;
     }
 }
