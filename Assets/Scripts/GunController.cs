@@ -74,8 +74,22 @@ public class GunController : MonoBehaviour
                 return;
         }
 
-        Vector3 viewDir = new Vector3(cameraTransform.position.x, playerTransform.position.y, cameraTransform.position.z) - playerTransform.position;
-        gunTransform.forward = Vector3.Slerp(gunTransform.forward, viewDir.normalized, rotationSpeed * Time.deltaTime);
+        // Rotate turret toward camera forward (yaw only, local space friendly)
+        Vector3 viewDir = cameraTransform.forward;
+        viewDir.y = 0f;
+        if (viewDir.sqrMagnitude < 0.0001f)
+            viewDir = playerTransform.forward; // fallback
+        viewDir.Normalize();
+
+        Quaternion targetWorld = Quaternion.LookRotation(viewDir, Vector3.up);
+        Quaternion targetLocal = gunTransform.parent != null
+            ? Quaternion.Inverse(gunTransform.parent.rotation) * targetWorld
+            : targetWorld;
+
+        gunTransform.localRotation = Quaternion.Slerp(
+            gunTransform.localRotation,
+            targetLocal,
+            rotationSpeed * Time.deltaTime);
 
         if (Input.GetMouseButton(0) && Time.time >= nextFireTime)
             FireHitscan();

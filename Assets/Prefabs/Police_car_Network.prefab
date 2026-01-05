@@ -234,6 +234,7 @@ MonoBehaviour:
   - {fileID: 3631969318326752934}
   - {fileID: 8552547104355191947}
   - {fileID: 1408540589379783288}
+  - {fileID: 1574058241305521632}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &3631969318326752934
 MonoBehaviour:
@@ -362,6 +363,7 @@ GameObject:
   - component: {fileID: 7685992361051736496}
   - component: {fileID: 2758795907219129251}
   - component: {fileID: 8215193840748461052}
+  - component: {fileID: 1574058241305521632}
   m_Layer: 0
   m_Name: CarMainCamera
   m_TagString: MainCamera
@@ -443,6 +445,22 @@ AudioListener:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2895975055790583478}
   m_Enabled: 1
+--- !u!114 &1574058241305521632
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2895975055790583478}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a389901b7060db640a608267826141e3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  target: {fileID: 1478828481226017764}
+  sensitivity: 2
+  minPitch: -60
+  maxPitch: 60
 --- !u!1 &3272446331288213139
 GameObject:
   m_ObjectHideFlags: 0
