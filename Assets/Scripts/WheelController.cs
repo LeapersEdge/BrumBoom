@@ -21,6 +21,8 @@ public class WheelController : MonoBehaviour
     [Header("Networking")]
     public bool useExternalInput = false;
 
+    private Fusion.NetworkObject _netObj;
+
     private float currentAcceleration = 0f;
     private float currentBrakeForce = 0f;
     private float currentSteeringAngle = 0f;
@@ -32,8 +34,17 @@ public class WheelController : MonoBehaviour
 
     private void Start()
     {
+        _netObj = GetComponentInParent<Fusion.NetworkObject>();
+
         // Always lock cursor when gameplay starts (pre-networked behaviour)
-        LockCursor();
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
+        // Default to external input (network-driven). Local path only used if explicitly set false.
+        useExternalInput = true;
+        _extMoveInput = 0f;
+        _extSteerInput = 0f;
+        _extBrake = false;
     }
 
     private void FixedUpdate()
@@ -49,6 +60,13 @@ public class WheelController : MonoBehaviour
         float moveInput;
         float steerInput;
         bool isBraking;
+
+        // Prevent local input from driving objects we neither own nor simulate
+        if (_netObj != null && useExternalInput == false)
+        {
+            if (_netObj.HasStateAuthority == false && _netObj.HasInputAuthority == false)
+                return;
+        }
 
         if (useExternalInput)
         {
@@ -98,18 +116,6 @@ public class WheelController : MonoBehaviour
         _extSteerInput = steer;
         _extBrake = brake;
         useExternalInput = true;
-    }
-
-    public void LockCursor()
-    {
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
-    }
-
-    public void UnlockCursor()
-    {
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
     }
 
     void UpdateWheel(WheelCollider col, Transform trans)

@@ -112,11 +112,6 @@ namespace NetGame
             }
 
             // lock cursor after we start the network
-            LockCursor();
-        }
-
-        private static void LockCursor()
-        {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
