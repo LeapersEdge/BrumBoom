@@ -183,6 +183,9 @@ MonoBehaviour:
   gunTransform: {fileID: 1677906598660702577}
   muzzleTransform: {fileID: 3471710021670707815}
   rotationSpeed: 5
+  yawOffsetDegrees: 180
+  logDebug: 1
+  logInterval: 0.5
   fireRate: 0.1
   range: 200
   damage: 1
@@ -461,6 +464,9 @@ MonoBehaviour:
   sensitivity: 2
   minPitch: -60
   maxPitch: 60
+  startYaw: 0
+  startOffset: {x: 0, y: 5, z: -8}
+  logInterval: 0.5
 --- !u!1 &3272446331288213139
 GameObject:
   m_ObjectHideFlags: 0
@@ -1254,7 +1260,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2087245151061133038, guid: dd7b0c56830953341a91bc9bd1d545da, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2087245151061133038, guid: dd7b0c56830953341a91bc9bd1d545da, type: 3}
       propertyPath: m_LocalRotation.y
@@ -1262,7 +1268,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2087245151061133038, guid: dd7b0c56830953341a91bc9bd1d545da, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 2087245151061133038, guid: dd7b0c56830953341a91bc9bd1d545da, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x

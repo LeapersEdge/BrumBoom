@@ -13,6 +13,9 @@ public class GunController : MonoBehaviour
 
     [Header("Aiming")]
     [SerializeField] private float rotationSpeed = 5f;
+    [SerializeField] private float yawOffsetDegrees = 0f; // set 180 if model faces backward
+    [SerializeField] private bool logDebug = false;
+    [SerializeField] private float logInterval = 0.5f;
 
     [Header("Hitscan")]
     [SerializeField] private float fireRate = 0.1f;
@@ -32,6 +35,7 @@ public class GunController : MonoBehaviour
 
     private float nextFireTime;
     private string localPlayerLayerName = "LocalPlayer";
+    private float _logTimer;
 
     private void Awake()
     {
@@ -81,7 +85,8 @@ public class GunController : MonoBehaviour
             viewDir = playerTransform.forward; // fallback
         viewDir.Normalize();
 
-        Quaternion targetWorld = Quaternion.LookRotation(viewDir, Vector3.up);
+        // Apply yaw offset to compensate for model facing the opposite direction
+        Quaternion targetWorld = Quaternion.LookRotation(viewDir, Vector3.up) * Quaternion.Euler(0f, yawOffsetDegrees, 0f);
         Quaternion targetLocal = gunTransform.parent != null
             ? Quaternion.Inverse(gunTransform.parent.rotation) * targetWorld
             : targetWorld;
@@ -90,6 +95,20 @@ public class GunController : MonoBehaviour
             gunTransform.localRotation,
             targetLocal,
             rotationSpeed * Time.deltaTime);
+
+        if (logDebug)
+        {
+            _logTimer += Time.deltaTime;
+            if (_logTimer >= logInterval)
+            {
+                _logTimer = 0f;
+                var camFwd = cameraTransform.forward;
+                var gunFwd = gunTransform.forward;
+                var playerFwd = playerTransform ? playerTransform.forward : Vector3.zero;
+                var parentRot = gunTransform.parent ? gunTransform.parent.rotation.eulerAngles : Vector3.zero;
+                Debug.Log($"[GunController] viewDir={viewDir} camFwd={camFwd} playerFwd={playerFwd} gunFwd={gunFwd} targetWorldEuler={targetWorld.eulerAngles} targetLocalEuler={targetLocal.eulerAngles} parentRotEuler={parentRot} yawOffset={yawOffsetDegrees}");
+            }
+        }
 
         if (Input.GetMouseButton(0) && Time.time >= nextFireTime)
             FireHitscan();
