@@ -73,10 +73,8 @@ namespace NetGame
             var op = SceneManager.LoadSceneAsync(gameplaySceneName, LoadSceneMode.Single);
             if (op == null)
             {
-                Debug.LogError($"Failed to load scene '{gameplaySceneName}'. Is it added to Build Settings?");
                 yield break;
             }
-            Debug.Log($"[StartMenuUI] Loading scene '{gameplaySceneName}' for mode {mode}...");
             while (!op.isDone)
                 yield return null;
 
@@ -84,19 +82,8 @@ namespace NetGame
             var bootstrap = FindObjectOfType<GameBootstrap>();
             if (bootstrap == null)
             {
-                Debug.LogError("GameBootstrap not found in gameplay scene.");
                 yield break;
             }
-            Debug.Log($"[StartMenuUI] Scene loaded. Starting mode {mode}.");
-
-#region agent log
-            try
-            {
-                var payload = "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H6\",\"location\":\"StartMenuUI:LoadAndStart\",\"message\":\"button click\",\"data\":{\"mode\":\"" + mode + "\"},\"timestamp\":" + System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "}";
-                System.IO.File.AppendAllText(@"c:\Users\marti\Desktop\FER\UMRIGR\project\My project\.cursor\debug.log", payload + "\n", System.Text.Encoding.UTF8);
-            }
-            catch { }
-#endregion
 
             switch (mode)
             {

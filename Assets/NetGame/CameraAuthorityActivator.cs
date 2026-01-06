@@ -31,7 +31,6 @@ namespace NetGame
             if (audioListener != null)
                 audioListener.enabled = isLocal;
 
-            Debug.Log($"[CameraAuthorityActivator] isLocal={isLocal} cam={(cameraRoot != null ? cameraRoot.name : "null")} audio={(audioListener != null ? "yes" : "no")}");
         }
     }
 }

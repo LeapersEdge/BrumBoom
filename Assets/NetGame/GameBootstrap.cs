@@ -28,15 +28,6 @@ namespace NetGame
         private void Awake()
         {
             Instance = this;
-#region agent log
-            try
-            {
-                var payload = "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H3\",\"location\":\"GameBootstrap:Awake\",\"message\":\"awake\",\"data\":{},\"timestamp\":" + System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "}";
-                System.IO.File.AppendAllText(@"c:\Users\marti\Desktop\FER\UMRIGR\project\My project\.cursor\debug.log", payload + "\n", Encoding.UTF8);
-            }
-            catch { }
-#endregion
-            Debug.Log("[GameBootstrap] Awake");
         }
 
         public async void StartHost() => await StartRunner(GameMode.Host);
@@ -58,14 +49,12 @@ namespace NetGame
         // guard: prevent double start
         if (_starting)
         {
-            Debug.LogWarning("Runner start already in progress; ignoring start request.");
             return false;
         }
 
         // reuse if already running
         if (_runner != null && _runner.IsRunning)
         {
-            Debug.LogWarning("Runner already running; ignoring start request.");
             return true;
         }
 
@@ -89,17 +78,6 @@ namespace NetGame
 
         _runner.ProvideInput = true;
         _runner.AddCallbacks(this);
-
-#region agent log
-        try
-        {
-            var payload = "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H3\",\"location\":\"GameBootstrap:StartRunner\",\"message\":\"start request\",\"data\":{\"mode\":\"" + mode + "\"},\"timestamp\":" + System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "}";
-            System.IO.File.AppendAllText(@"c:\Users\marti\Desktop\FER\UMRIGR\project\My project\.cursor\debug.log", payload + "\n", Encoding.UTF8);
-        }
-        catch { }
-#endregion
-
-        Debug.Log($"[GameBootstrap] StartRunner mode={mode} starting...");
         _starting = true;
         var result = await _runner.StartGame(new StartGameArgs
         {
@@ -110,24 +88,13 @@ namespace NetGame
         });
         _starting = false;
 
-#region agent log
-        try
-        {
-            var payload = "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H3\",\"location\":\"GameBootstrap:StartRunner\",\"message\":\"start result\",\"data\":{\"ok\":" + (result.Ok ? 1 : 0) + ",\"reason\":\"" + result.ShutdownReason + "\"},\"timestamp\":" + System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "}";
-            System.IO.File.AppendAllText(@"c:\Users\marti\Desktop\FER\UMRIGR\project\My project\.cursor\debug.log", payload + "\n", Encoding.UTF8);
-        }
-        catch { }
-#endregion
-
         if (result.Ok == false)
         {
-            Debug.LogError($"Runner start failed: {result.ShutdownReason}");
             try { await _runner.Shutdown(); } catch { }
             _runner = null;
             return false;
         }
 
-        Debug.Log("[GameBootstrap] StartRunner OK");
         return true;
         }
 
@@ -135,21 +102,11 @@ namespace NetGame
 
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
-#region agent log
-            try
-            {
-                var payload = "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H4\",\"location\":\"GameBootstrap:OnPlayerJoined\",\"message\":\"spawn player\",\"data\":{\"player\":" + player.PlayerId + ",\"isServer\":" + (runner.IsServer ? 1 : 0) + ",\"hasPrefab\":" + (carPrefab != null ? 1 : 0) + ",\"spawnIdx\":" + _nextSpawn + "},\"timestamp\":" + System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "}";
-                System.IO.File.AppendAllText(@"c:\Users\marti\Desktop\FER\UMRIGR\project\My project\.cursor\debug.log", payload + "\n", Encoding.UTF8);
-            }
-            catch { }
-#endregion
-            LogDebug("H1", "GameBootstrap:OnPlayerJoined", "player joined", new { player = player.PlayerId, isServer = runner.IsServer });
             if (runner.IsServer == false)
                 return;
 
             if (carPrefab == null)
             {
-                Debug.LogError("Car prefab missing on GameBootstrap.");
                 return;
             }
 
@@ -162,16 +119,6 @@ namespace NetGame
 
             var car = runner.Spawn(carPrefab, pos, rot, player);
             runner.SetPlayerObject(player, car);
-
-#region agent log
-            try
-            {
-                var payload = "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H4\",\"location\":\"GameBootstrap:OnPlayerJoined\",\"message\":\"spawned car\",\"data\":{\"player\":" + player.PlayerId + ",\"carNull\":" + (car == null ? 1 : 0) + "},\"timestamp\":" + System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "}";
-                System.IO.File.AppendAllText(@"c:\\Users\\marti\\Desktop\\FER\\UMRIGR\\project\\My project\\.cursor\\debug.log", payload + "\\n", Encoding.UTF8);
-            }
-            catch { }
-#endregion
-            Debug.Log($"[GameBootstrap] OnPlayerJoined player={player.PlayerId} car={(car == null ? "null" : car.name)} pos={pos}");
         }
 
         public bool TryGetSpawn(out Vector3 pos, out Quaternion rot)
@@ -191,7 +138,6 @@ namespace NetGame
 
         public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
         {
-            LogDebug("H1", "GameBootstrap:OnPlayerLeft", "player left", new { player = player.PlayerId });
             if (runner.TryGetPlayerObject(player, out var obj))
             {
                 runner.Despawn(obj);
@@ -200,14 +146,6 @@ namespace NetGame
 
         public void OnInput(NetworkRunner runner, NetworkInput input)
         {
-#region agent log
-            try
-            {
-                var payload = "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H3\",\"location\":\"GameBootstrap:OnInput\",\"message\":\"collect input\",\"data\":{\"player\":" + runner.LocalPlayer.PlayerId + ",\"vert\":" + Input.GetAxisRaw("Vertical") + ",\"hor\":" + Input.GetAxisRaw("Horizontal") + ",\"space\":" + (Input.GetKey(KeyCode.Space) ? 1 : 0) + "},\"timestamp\":" + System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "}";
-                System.IO.File.AppendAllText(@"c:\Users\marti\Desktop\FER\UMRIGR\project\My project\.cursor\debug.log", payload + "\n", Encoding.UTF8);
-            }
-            catch { }
-#endregion
             var data = new CarInput
             {
                 Move = new Vector2(
@@ -219,14 +157,6 @@ namespace NetGame
                 Fire = ReadFireInput(),
                 Brake = Input.GetKey(KeyCode.Space)
             };
-
-            LogDebug("H2", "GameBootstrap:OnInput", "input collected", new
-            {
-                moveY = data.Move.y,
-                steer = data.Steer,
-                turret = data.Turret,
-                fire = (bool)data.Fire
-            });
 
             input.Set(data);
         }
@@ -271,43 +201,14 @@ namespace NetGame
         // Fusion 2 requires AOI callbacks on INetworkRunnerCallbacks
         public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player)
         {
-            LogDebug("H3", "GameBootstrap:OnObjectEnterAOI", "enter aoi", new { player = player.PlayerId, obj = obj.Id.Raw });
         }
 
         public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player)
         {
-            LogDebug("H3", "GameBootstrap:OnObjectExitAOI", "exit aoi", new { player = player.PlayerId, obj = obj.Id.Raw });
         }
 
         #endregion
 
-        // #region agent log helper
-        private static void LogDebug(string hypothesisId, string location, string message, object data)
-        {
-            try
-            {
-                var dir = @"c:\Users\marti\Desktop\FER\UMRIGR\project\My project\.cursor";
-                if (!Directory.Exists(dir))
-                    Directory.CreateDirectory(dir);
-
-                // Minimal JSON to avoid System.Text.Json dependency in this Unity profile.
-                var payload = "{"
-                    + "\"sessionId\":\"debug-session\","
-                    + "\"runId\":\"pre-fix\","
-                    + "\"hypothesisId\":\"" + hypothesisId + "\","
-                    + "\"location\":\"" + location + "\","
-                    + "\"message\":\"" + message + "\","
-                    + "\"data\":\"" + data + "\","
-                    + "\"timestamp\":" + System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-                    + "}";
-                File.AppendAllText(Path.Combine(dir, "debug.log"), payload + "\n", Encoding.UTF8);
-            }
-            catch
-            {
-                // swallow logging errors to avoid impacting gameplay
-            }
-        }
-        // #endregion
     }
 }
 
