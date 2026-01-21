@@ -95,6 +95,8 @@ public class GunController : MonoBehaviour
 
     private void FireHitscan()
     {
+
+
         nextFireTime = Time.time + fireRate;
         if (muzzleTransform == null) muzzleTransform = gunTransform;
 

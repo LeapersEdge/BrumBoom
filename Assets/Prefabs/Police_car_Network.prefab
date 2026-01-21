@@ -88,6 +88,8 @@ GameObject:
   - component: {fileID: 3631969318326752934}
   - component: {fileID: 8552547104355191947}
   - component: {fileID: 1408540589379783288}
+  - component: {fileID: -6564358629359584177}
+  - component: {fileID: -1351268713182160687}
   m_Layer: 0
   m_Name: Police_car_Network
   m_TagString: Untagged
@@ -184,8 +186,6 @@ MonoBehaviour:
   muzzleTransform: {fileID: 3471710021670707815}
   rotationSpeed: 5
   yawOffsetDegrees: 180
-  logDebug: 1
-  logInterval: 0.5
   fireRate: 0.1
   range: 200
   damage: 1
@@ -237,6 +237,8 @@ MonoBehaviour:
   - {fileID: 3631969318326752934}
   - {fileID: 8552547104355191947}
   - {fileID: 1408540589379783288}
+  - {fileID: -6564358629359584177}
+  - {fileID: -1351268713182160687}
   - {fileID: 1574058241305521632}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &3631969318326752934
@@ -289,6 +291,35 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   cameraRoot: {fileID: 2895975055790583478}
   audioListener: {fileID: 8215193840748461052}
+--- !u!114 &-6564358629359584177
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 177647412956555469}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5fd3b82fe2170b6409d0c22e94f4325e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  damagePerPress: 30
+--- !u!114 &-1351268713182160687
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 177647412956555469}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82db77f5308c10741af65f44e4884d79, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxHealth: 100
+  startLives: 3
+  _Health: 0
+  _Lives: 0
 --- !u!1 &2290642154341521357
 GameObject:
   m_ObjectHideFlags: 0
@@ -466,7 +497,6 @@ MonoBehaviour:
   maxPitch: 60
   startYaw: 0
   startOffset: {x: 0, y: 5, z: -8}
-  logInterval: 0.5
 --- !u!1 &3272446331288213139
 GameObject:
   m_ObjectHideFlags: 0
