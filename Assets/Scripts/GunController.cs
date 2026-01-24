@@ -9,8 +9,11 @@ public class GunController : MonoBehaviour
     [SerializeField] private Transform gunTransform;
     [SerializeField] private Transform muzzleTransform;
 
+    private Fusion.NetworkObject _netObj;
+
     [Header("Aiming")]
     [SerializeField] private float rotationSpeed = 5f;
+    [SerializeField] private float yawOffsetDegrees = 0f; // set 180 if model faces backward
 
     [Header("Hitscan")]
     [SerializeField] private float fireRate = 0.1f;
@@ -33,20 +36,20 @@ public class GunController : MonoBehaviour
 
     private void Awake()
     {
+        _netObj = GetComponentInParent<Fusion.NetworkObject>();
+
         // Ensure hitMask excludes LocalPlayer layer
         int localLayer = LayerMask.NameToLayer(localPlayerLayerName);
         if (localLayer >= 0)
         {
             hitMask &= ~(1 << localLayer);
         }
-        else
-        {
-            Debug.LogWarning($"Layer '{localPlayerLayerName}' not found. Create it in Project Settings > Tags and Layers.");
-        }
     }
 
     private void Start()
     {
+        TryResolveCamera();
+
         // IMPORTANT in multiplayer: only run this on the local player instance.
         int localLayer = LayerMask.NameToLayer(localPlayerLayerName);
         if (localLayer < 0) return;
@@ -58,8 +61,33 @@ public class GunController : MonoBehaviour
 
     private void Update()
     {
-        Vector3 viewDir = new Vector3(cameraTransform.position.x, playerTransform.position.y, cameraTransform.position.z) - playerTransform.position;
-        gunTransform.forward = Vector3.Slerp(gunTransform.forward, viewDir.normalized, rotationSpeed * Time.deltaTime);
+        bool isLocal = _netObj == null || _netObj.HasInputAuthority;
+        if (!isLocal) return;
+
+        if (cameraTransform == null || gameplayCamera == null)
+        {
+            TryResolveCamera();
+            if (cameraTransform == null || gameplayCamera == null)
+                return;
+        }
+
+        // Rotate turret toward camera forward (yaw only, local space friendly)
+        Vector3 viewDir = cameraTransform.forward;
+        viewDir.y = 0f;
+        if (viewDir.sqrMagnitude < 0.0001f)
+            viewDir = playerTransform.forward; // fallback
+        viewDir.Normalize();
+
+        // Apply yaw offset to compensate for model facing the opposite direction
+        Quaternion targetWorld = Quaternion.LookRotation(viewDir, Vector3.up) * Quaternion.Euler(0f, yawOffsetDegrees, 0f);
+        Quaternion targetLocal = gunTransform.parent != null
+            ? Quaternion.Inverse(gunTransform.parent.rotation) * targetWorld
+            : targetWorld;
+
+        gunTransform.localRotation = Quaternion.Slerp(
+            gunTransform.localRotation,
+            targetLocal,
+            rotationSpeed * Time.deltaTime);
 
         if (Input.GetMouseButton(0) && Time.time >= nextFireTime)
             FireHitscan();
@@ -67,6 +95,8 @@ public class GunController : MonoBehaviour
 
     private void FireHitscan()
     {
+
+
         nextFireTime = Time.time + fireRate;
         if (muzzleTransform == null) muzzleTransform = gunTransform;
 
@@ -126,5 +156,21 @@ public class GunController : MonoBehaviour
         if (col != null) Destroy(col);
 
         Destroy(orb, debugOrbLifetime);
+    }
+
+    private void TryResolveCamera()
+    {
+        if (gameplayCamera == null)
+        {
+            // First try camera on this prefab (active or inactive)
+            gameplayCamera = GetComponentInParent<Camera>(includeInactive: true);
+            if (gameplayCamera == null)
+                gameplayCamera = GetComponentInChildren<Camera>(includeInactive: true);
+            if (gameplayCamera == null)
+                gameplayCamera = Camera.main;
+        }
+
+        if (gameplayCamera != null && cameraTransform == null)
+            cameraTransform = gameplayCamera.transform;
     }
 }

@@ -68,7 +68,6 @@ public class Health : MonoBehaviour {
 	public void ApplyDamage(float amount)
 	{
 		healthPoints = healthPoints - amount;
-		Debug.Log("Damage applied: " + amount + ". Current HP: " + healthPoints);
     }
 	
 	public void ApplyHeal(float amount)
