@@ -34,6 +34,8 @@ public class MazeGenerator : MonoBehaviour
 
     void Start()
     {
+        UnityEngine.Random.InitState(10);
+
         GenerateMazeShell();
 
         // init node tree
