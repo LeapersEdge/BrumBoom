@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using NetGame;
 using Unity.VisualScripting;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
@@ -79,6 +80,22 @@ public class MazeGenerator : MonoBehaviour
         {
             GenerateMaze();
             ModifyWalls();
+        }
+
+        // generate spawn points
+        GameBootstrap gameBootstrap = GameObject.Find("GameBootstrap").GetComponent<GameBootstrap>();
+        GameObject spawnPointsObj = GameObject.Find("SpawnPoints");
+        for (int i = 0; i < 10; i++)
+        {
+            GameObject spawnPoint = new GameObject();
+            spawnPoint.transform.SetParent(spawnPointsObj.transform);
+            spawnPoint.transform.position = cellGOList[UnityEngine.Random.Range(0, cellGOList.Count)].transform.position;
+            Vector3 position = spawnPoint.transform.position;
+            position.y += 0.75f;
+            position.z -= mazeCellSize/2;
+            spawnPoint.transform.position = position;
+            spawnPoint.transform.name = "sp" + i;
+            gameBootstrap.AddSpawnPoint(spawnPoint.transform);
         }
     }
 

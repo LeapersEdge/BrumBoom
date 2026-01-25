@@ -30,6 +30,11 @@ namespace NetGame
             Instance = this;
         }
 
+        public void AddSpawnPoint(Transform transform)
+        {
+            spawnPoints.Add(transform);
+        }
+
         public async void StartHost() => await StartRunner(GameMode.Host);
         public async void StartClient() => await StartRunner(GameMode.Client);
 
