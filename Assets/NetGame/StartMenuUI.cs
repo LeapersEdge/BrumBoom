@@ -57,6 +57,11 @@ namespace NetGame
             StartCoroutine(LoadAndStart(GameMode.AutoHostOrClient));
         }
 
+        public void OnExitClicked()
+        {
+            Application.Quit();
+        }
+
         private void SetButtonsInteractable(bool value)
         {
             if (hostButton != null) hostButton.interactable = value;

@@ -41,7 +41,7 @@ public class WheelController : MonoBehaviour
         Cursor.visible = false;
 
         // Default to external input (network-driven). Local path only used if explicitly set false.
-        useExternalInput = true;
+        //useExternalInput = true;
         _extMoveInput = 0f;
         _extSteerInput = 0f;
         _extBrake = false;
