@@ -29,13 +29,15 @@ public class MazeGenerator : MonoBehaviour
     [SerializeField] float percentWallsRising;
     [SerializeField] float percentWallsFalling;
 
+    public int randomSeed = 10;
+
     List<GameObject> cellGOList = new List<GameObject>();
     List<Wall> walls = new List<Wall>();
     List<int> nodeTree = new List<int>();
 
     void Start()
     {
-        UnityEngine.Random.InitState(10);
+        UnityEngine.Random.InitState(randomSeed);
 
         GenerateMazeShell();
 
