@@ -123,63 +123,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1001 &196515240
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 750401395908322058, guid: 325877a26107c9b4c8cde387921f53d0, type: 3}
-      propertyPath: m_Name
-      value: Police_car
-      objectReference: {fileID: 0}
-    - target: {fileID: 9193782498928542870, guid: 325877a26107c9b4c8cde387921f53d0, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9193782498928542870, guid: 325877a26107c9b4c8cde387921f53d0, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0.05562024
-      objectReference: {fileID: 0}
-    - target: {fileID: 9193782498928542870, guid: 325877a26107c9b4c8cde387921f53d0, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9193782498928542870, guid: 325877a26107c9b4c8cde387921f53d0, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 9193782498928542870, guid: 325877a26107c9b4c8cde387921f53d0, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9193782498928542870, guid: 325877a26107c9b4c8cde387921f53d0, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9193782498928542870, guid: 325877a26107c9b4c8cde387921f53d0, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9193782498928542870, guid: 325877a26107c9b4c8cde387921f53d0, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9193782498928542870, guid: 325877a26107c9b4c8cde387921f53d0, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 9193782498928542870, guid: 325877a26107c9b4c8cde387921f53d0, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 325877a26107c9b4c8cde387921f53d0, type: 3}
 --- !u!1 &761715312
 GameObject:
   m_ObjectHideFlags: 0
@@ -303,7 +246,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 213d55bcd2ae0c94b90bf074af44783d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  carPrefab: {fileID: 0}
+  carPrefab: {fileID: 3479995444406016210, guid: 864f65a212e1ce244b0c07581035d743, type: 3}
   spawnPoints: []
   sessionName: Room
 --- !u!4 &821990227
@@ -362,6 +305,7 @@ MonoBehaviour:
   percentWallsRemove: 0.25
   percentWallsRising: 0.25
   percentWallsFalling: 0.25
+  randomSeed: 10
 --- !u!4 &907148484
 Transform:
   m_ObjectHideFlags: 0
@@ -1025,7 +969,6 @@ SceneRoots:
   - {fileID: 1941721598}
   - {fileID: 761715314}
   - {fileID: 1184730637}
-  - {fileID: 196515240}
   - {fileID: 907148484}
   - {fileID: 821990227}
   - {fileID: 1856001751}

@@ -90,9 +90,10 @@ GameObject:
   - component: {fileID: 1408540589379783288}
   - component: {fileID: -6564358629359584177}
   - component: {fileID: -1351268713182160687}
+  - component: {fileID: -6121475674690095840}
   m_Layer: 0
   m_Name: Police_car_Network
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -320,6 +321,27 @@ MonoBehaviour:
   startLives: 3
   _Health: 0
   _Lives: 0
+--- !u!65 &-6121475674690095840
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 177647412956555469}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0, y: 0, z: 0}
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!1 &2290642154341521357
 GameObject:
   m_ObjectHideFlags: 0
