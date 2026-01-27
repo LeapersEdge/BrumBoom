@@ -6,11 +6,15 @@ public class NetworkHealth : NetworkBehaviour
 {
     [SerializeField] private float maxHealth = 100f;
     [SerializeField] private int startLives = 3;
+    [SerializeField] private float spawnGhostDuration = 2f;
+    [SerializeField] private float ghostAlpha = 0.35f;
 
     [Networked] public float Health { get; private set; }
     [Networked] public int Lives { get; private set; }
     [Networked] public int Kills { get; private set; }
     [Networked] public NetworkBool IsEliminated { get; private set; }
+    [Networked] public NetworkBool IsGhost { get; private set; }
+    [Networked] private float GhostUntil { get; set; }
     [Networked] public NetworkString<_32> PlayerName { get; private set; }
 
     public float MaxHealth => maxHealth;
@@ -22,10 +26,13 @@ public class NetworkHealth : NetworkBehaviour
             Health = maxHealth;
             Lives = startLives;
             IsEliminated = false;
+            StartGhost(spawnGhostDuration);
         }
 
         CacheComponents();
         ApplyEliminatedState();
+        if (IsGhost)
+            ApplyGhostState();
 
         if (GetComponent<PlayerWorldUI>() == null)
             gameObject.AddComponent<PlayerWorldUI>();
@@ -42,6 +49,11 @@ public class NetworkHealth : NetworkBehaviour
         if (_lastEliminated != IsEliminated)
         {
             ApplyEliminatedState();
+        }
+
+        if (!IsEliminated && _lastGhost != IsGhost)
+        {
+            ApplyGhostState();
         }
     }
 
@@ -63,6 +75,7 @@ public class NetworkHealth : NetworkBehaviour
     {
         if (!Object.HasStateAuthority) return;
         if (IsEliminated) return;
+        if (IsGhost) return;
 
         Health = Mathf.Max(0, Health - amount);
 
@@ -111,6 +124,29 @@ public class NetworkHealth : NetworkBehaviour
         }
     }
 
+    public override void FixedUpdateNetwork()
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        if (!IsGhost)
+            return;
+
+        UpdateCollisionIgnores();
+
+        if (Runner.SimulationTime < GhostUntil)
+            return;
+
+        if (IsOverlappingOtherPlayers())
+        {
+            GhostUntil = Runner.SimulationTime + spawnGhostDuration;
+        }
+        else
+        {
+            IsGhost = false;
+        }
+    }
+
     private Renderer[] _renderers;
     private Collider[] _colliders;
     private Rigidbody _rb;
@@ -118,6 +154,8 @@ public class NetworkHealth : NetworkBehaviour
     private bool _spectatorTargetSet;
     private bool _wasKinematic;
     private bool _lastEliminated;
+    private bool _lastGhost;
+    private MaterialSnapshot[] _materialSnapshots;
 
     private void CacheComponents()
     {
@@ -127,6 +165,7 @@ public class NetworkHealth : NetworkBehaviour
         _rb = GetComponent<Rigidbody>();
         _wasKinematic = _rb != null && _rb.isKinematic;
         _cached = true;
+        CacheMaterialSnapshots();
     }
 
     private void ApplyEliminatedState()
@@ -189,6 +228,23 @@ public class NetworkHealth : NetworkBehaviour
         }
     }
 
+    private void ApplyGhostState()
+    {
+        CacheComponents();
+        _lastGhost = IsGhost;
+
+        if (IsGhost)
+        {
+            SetGhostMaterials(true);
+            UpdateCollisionIgnores();
+        }
+        else
+        {
+            SetGhostMaterials(false);
+            UpdateCollisionIgnores();
+        }
+    }
+
     private void TrySetSpectatorTarget()
     {
         if (_spectatorTargetSet) return;
@@ -237,6 +293,187 @@ public class NetworkHealth : NetworkBehaviour
             _rb.velocity = Vector3.zero;
             _rb.angularVelocity = Vector3.zero;
         }
+
+        if (Object.HasStateAuthority)
+        {
+            StartGhost(spawnGhostDuration);
+            ApplyGhostState();
+        }
+    }
+
+    private void StartGhost(float duration)
+    {
+        IsGhost = true;
+        GhostUntil = Runner.SimulationTime + duration;
+    }
+
+    private bool IsOverlappingOtherPlayers()
+    {
+        if (_colliders == null || _colliders.Length == 0)
+            return false;
+
+        if (!TryGetOwnBounds(out var ownBounds))
+            return false;
+
+        foreach (var nh in FindObjectsOfType<NetworkHealth>())
+        {
+            if (nh == null || nh == this)
+                continue;
+
+            if (nh.IsEliminated)
+                continue;
+
+            var otherCols = nh.GetComponentsInChildren<Collider>(includeInactive: true);
+            foreach (var otherCol in otherCols)
+            {
+                if (otherCol == null || otherCol.enabled == false || otherCol.isTrigger)
+                    continue;
+
+                if (ownBounds.Intersects(otherCol.bounds))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryGetOwnBounds(out Bounds bounds)
+    {
+        bounds = new Bounds();
+        bool hasBounds = false;
+
+        foreach (var col in _colliders)
+        {
+            if (col == null || col.enabled == false || col.isTrigger)
+                continue;
+
+            if (!hasBounds)
+            {
+                bounds = col.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(col.bounds);
+            }
+        }
+
+        return hasBounds;
+    }
+
+    private void UpdateCollisionIgnores()
+    {
+        if (_colliders == null || _colliders.Length == 0)
+            return;
+
+        foreach (var other in FindObjectsOfType<NetworkHealth>())
+        {
+            if (other == null || other == this)
+                continue;
+
+            bool ignore = IsGhost || other.IsGhost;
+            var otherCols = other.GetComponentsInChildren<Collider>(includeInactive: true);
+
+            foreach (var ownCol in _colliders)
+            {
+                if (ownCol == null || ownCol.isTrigger)
+                    continue;
+
+                foreach (var otherCol in otherCols)
+                {
+                    if (otherCol == null || otherCol.isTrigger)
+                        continue;
+
+                    Physics.IgnoreCollision(ownCol, otherCol, ignore);
+                }
+            }
+        }
+    }
+
+    private void CacheMaterialSnapshots()
+    {
+        if (_materialSnapshots != null)
+            return;
+
+        var snapshots = new System.Collections.Generic.List<MaterialSnapshot>();
+        foreach (var r in _renderers)
+        {
+            if (r == null)
+                continue;
+
+            var mats = r.materials;
+            foreach (var mat in mats)
+            {
+                if (mat == null)
+                    continue;
+
+                snapshots.Add(new MaterialSnapshot(mat));
+            }
+        }
+
+        _materialSnapshots = snapshots.ToArray();
+    }
+
+    private void SetGhostMaterials(bool ghost)
+    {
+        if (_materialSnapshots == null || _materialSnapshots.Length == 0)
+            return;
+
+        foreach (var snap in _materialSnapshots)
+        {
+            if (snap.Material == null || !snap.Material.HasProperty("_Color"))
+                continue;
+
+            if (ghost)
+            {
+                var c = snap.OriginalColor;
+                c.a = ghostAlpha;
+                SetMaterialTransparent(snap.Material);
+                snap.Material.color = c;
+            }
+            else
+            {
+                SetMaterialOpaque(snap);
+            }
+        }
+    }
+
+    private static void SetMaterialTransparent(Material mat)
+    {
+        mat.SetOverrideTag("RenderType", "Transparent");
+        mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        mat.SetInt("_ZWrite", 0);
+        mat.DisableKeyword("_ALPHATEST_ON");
+        mat.EnableKeyword("_ALPHABLEND_ON");
+        mat.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+    }
+
+    private static void SetMaterialOpaque(MaterialSnapshot snap)
+    {
+        var mat = snap.Material;
+        if (mat == null)
+            return;
+
+        mat.SetOverrideTag("RenderType", snap.RenderType);
+        mat.SetInt("_SrcBlend", snap.SrcBlend);
+        mat.SetInt("_DstBlend", snap.DstBlend);
+        mat.SetInt("_ZWrite", snap.ZWrite);
+
+        SetKeyword(mat, "_ALPHATEST_ON", snap.AlphaTest);
+        SetKeyword(mat, "_ALPHABLEND_ON", snap.AlphaBlend);
+        SetKeyword(mat, "_ALPHAPREMULTIPLY_ON", snap.AlphaPremultiply);
+
+        mat.renderQueue = snap.RenderQueue;
+        if (mat.HasProperty("_Color"))
+            mat.color = snap.OriginalColor;
+    }
+
+    private static void SetKeyword(Material mat, string keyword, bool enabled)
+    {
+        if (enabled) mat.EnableKeyword(keyword);
+        else mat.DisableKeyword(keyword);
     }
 
     private static string SanitizeName(string value)
@@ -248,5 +485,33 @@ public class NetworkHealth : NetworkBehaviour
         if (value.Length > 24)
             value = value.Substring(0, 24);
         return value;
+    }
+
+    private readonly struct MaterialSnapshot
+    {
+        public readonly Material Material;
+        public readonly Color OriginalColor;
+        public readonly int SrcBlend;
+        public readonly int DstBlend;
+        public readonly int ZWrite;
+        public readonly string RenderType;
+        public readonly int RenderQueue;
+        public readonly bool AlphaTest;
+        public readonly bool AlphaBlend;
+        public readonly bool AlphaPremultiply;
+
+        public MaterialSnapshot(Material mat)
+        {
+            Material = mat;
+            OriginalColor = mat.HasProperty("_Color") ? mat.color : Color.white;
+            SrcBlend = mat.HasProperty("_SrcBlend") ? mat.GetInt("_SrcBlend") : (int)UnityEngine.Rendering.BlendMode.One;
+            DstBlend = mat.HasProperty("_DstBlend") ? mat.GetInt("_DstBlend") : (int)UnityEngine.Rendering.BlendMode.Zero;
+            ZWrite = mat.HasProperty("_ZWrite") ? mat.GetInt("_ZWrite") : 1;
+            RenderType = mat.GetTag("RenderType", false, string.Empty);
+            RenderQueue = mat.renderQueue;
+            AlphaTest = mat.IsKeywordEnabled("_ALPHATEST_ON");
+            AlphaBlend = mat.IsKeywordEnabled("_ALPHABLEND_ON");
+            AlphaPremultiply = mat.IsKeywordEnabled("_ALPHAPREMULTIPLY_ON");
+        }
     }
 }
