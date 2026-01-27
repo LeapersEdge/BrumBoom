@@ -64,7 +64,8 @@ public class NetworkHealth : NetworkBehaviour
         if (!Object.HasStateAuthority)
             return;
 
-        PlayerName = SanitizeName(name);
+        var sanitized = SanitizeName(name);
+        PlayerName = GetUniqueName(sanitized);
     }
 
     public void DealDamage(float amount)
@@ -570,6 +571,35 @@ public class NetworkHealth : NetworkBehaviour
         if (value.Length > 24)
             value = value.Substring(0, 24);
         return value;
+    }
+
+    private string GetUniqueName(string baseName)
+    {
+        if (string.IsNullOrWhiteSpace(baseName))
+            baseName = "Player";
+
+        var existing = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        foreach (var nh in FindObjectsOfType<NetworkHealth>())
+        {
+            if (nh == null || nh == this)
+                continue;
+
+            string other = nh.PlayerName.ToString();
+            if (!string.IsNullOrWhiteSpace(other))
+                existing.Add(other.Trim());
+        }
+
+        if (!existing.Contains(baseName))
+            return baseName;
+
+        int suffix = 2;
+        while (true)
+        {
+            string candidate = $"{baseName} {suffix}";
+            if (!existing.Contains(candidate))
+                return candidate;
+            suffix++;
+        }
     }
 
     private readonly struct MaterialSnapshot

@@ -142,7 +142,7 @@ namespace NetGame
         private void InitializeName()
         {
             string saved = PlayerPrefs.GetString(PlayerNameKey, string.Empty);
-            if (string.IsNullOrWhiteSpace(saved))
+            if (string.IsNullOrWhiteSpace(saved) || IsLegacyRandomName(saved))
                 saved = GenerateRandomName();
 
             SetLocalName(saved);
@@ -182,8 +182,33 @@ namespace NetGame
 
         private static string GenerateRandomName()
         {
-            int num = Random.Range(1000, 9999);
-            return $"Player{num}";
+            string[] first = { "Swift", "Iron", "Neon", "Shadow", "Crimson", "Frost", "Wild", "Silent", "Solar", "Storm" };
+            string[] second = { "Rider", "Wolf", "Falcon", "Tiger", "Nova", "Blade", "Ghost", "Viper", "Comet", "Raven" };
+
+            string a = first[Random.Range(0, first.Length)];
+            string b = second[Random.Range(0, second.Length)];
+            return $"{a}{b}";
+        }
+
+        private static bool IsLegacyRandomName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            value = value.Trim();
+            if (!value.StartsWith("Player", System.StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (value.Length <= 6)
+                return false;
+
+            for (int i = 6; i < value.Length; i++)
+            {
+                if (!char.IsDigit(value[i]))
+                    return false;
+            }
+
+            return true;
         }
 
         private enum GameMode
