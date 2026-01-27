@@ -49,7 +49,7 @@ namespace NetGame
                 return;
 
             var health = GetComponent<NetworkHealth>();
-            if (health != null && health.IsEliminated)
+            if (health != null && (health.IsEliminated || health.IsGhost))
                 return;
 
             // Consume input from the owning player
