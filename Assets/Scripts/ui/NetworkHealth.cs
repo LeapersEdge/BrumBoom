@@ -11,6 +11,7 @@ public class NetworkHealth : NetworkBehaviour
     [Networked] public int Lives { get; private set; }
     [Networked] public int Kills { get; private set; }
     [Networked] public NetworkBool IsEliminated { get; private set; }
+    [Networked] public NetworkString<_32> PlayerName { get; private set; }
 
     public float MaxHealth => maxHealth;
 
@@ -25,6 +26,15 @@ public class NetworkHealth : NetworkBehaviour
 
         CacheComponents();
         ApplyEliminatedState();
+
+        if (GetComponent<PlayerWorldUI>() == null)
+            gameObject.AddComponent<PlayerWorldUI>();
+
+        if (Object.HasInputAuthority)
+        {
+            var name = StartMenuUI.GetLocalPlayerName();
+            RPC_SetPlayerName(name);
+        }
     }
 
     public override void Render()
@@ -33,6 +43,15 @@ public class NetworkHealth : NetworkBehaviour
         {
             ApplyEliminatedState();
         }
+    }
+
+    [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
+    private void RPC_SetPlayerName(string name, RpcInfo info = default)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        PlayerName = SanitizeName(name);
     }
 
     public void DealDamage(float amount)
@@ -119,8 +138,11 @@ public class NetworkHealth : NetworkBehaviour
         {
             if (_rb != null)
             {
-                _rb.velocity = Vector3.zero;
-                _rb.angularVelocity = Vector3.zero;
+                if (_rb.isKinematic == false)
+                {
+                    _rb.velocity = Vector3.zero;
+                    _rb.angularVelocity = Vector3.zero;
+                }
                 _rb.isKinematic = true;
             }
 
@@ -215,5 +237,16 @@ public class NetworkHealth : NetworkBehaviour
             _rb.velocity = Vector3.zero;
             _rb.angularVelocity = Vector3.zero;
         }
+    }
+
+    private static string SanitizeName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "Player";
+
+        value = value.Trim();
+        if (value.Length > 24)
+            value = value.Substring(0, 24);
+        return value;
     }
 }

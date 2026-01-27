@@ -1,6 +1,7 @@
+using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 namespace NetGame
 {
@@ -9,11 +10,15 @@ namespace NetGame
     /// </summary>
     public class StartMenuUI : MonoBehaviour
     {
+        private const string PlayerNameKey = "PlayerName";
         [SerializeField] private string gameplaySceneName = "Gameplay";
         [SerializeField] private Button hostButton;
         [SerializeField] private Button clientButton;
         [SerializeField] private Button autoButton;
         [SerializeField] private GameObject menuRoot;
+        [SerializeField] private TMP_InputField nameInput;
+
+        public static string LocalPlayerName { get; private set; } = "Player";
 
         private bool _clicked;
 
@@ -31,6 +36,14 @@ namespace NetGame
 
             if (menuRoot == null)
                 menuRoot = gameObject;
+
+            if (nameInput == null)
+                nameInput = GetComponentInChildren<TMP_InputField>(true);
+
+            InitializeName();
+
+            if (nameInput != null)
+                nameInput.onEndEdit.AddListener(OnNameEdited);
         }
 
         private void OnDestroy()
@@ -41,6 +54,9 @@ namespace NetGame
                 clientButton.onClick.RemoveListener(OnClientClicked);
             if (autoButton != null)
                 autoButton.onClick.RemoveListener(OnAutoClicked);
+
+            if (nameInput != null)
+                nameInput.onEndEdit.RemoveListener(OnNameEdited);
         }
 
         private void OnHostClicked()
@@ -64,6 +80,13 @@ namespace NetGame
         public void OnExitClicked()
         {
             Application.Quit();
+        }
+
+        public static string GetLocalPlayerName()
+        {
+            if (string.IsNullOrWhiteSpace(LocalPlayerName))
+                LocalPlayerName = PlayerPrefs.GetString(PlayerNameKey, "Player");
+            return LocalPlayerName;
         }
 
         private void SetButtonsInteractable(bool value)
@@ -114,6 +137,53 @@ namespace NetGame
             // hide menu UI while in gameplay
             if (menuRoot != null)
                 menuRoot.SetActive(false);
+        }
+
+        private void InitializeName()
+        {
+            string saved = PlayerPrefs.GetString(PlayerNameKey, string.Empty);
+            if (string.IsNullOrWhiteSpace(saved))
+                saved = GenerateRandomName();
+
+            SetLocalName(saved);
+
+            if (nameInput != null)
+                nameInput.text = LocalPlayerName;
+        }
+
+        private void OnNameEdited(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                value = GenerateRandomName();
+
+            SetLocalName(value);
+
+            if (nameInput != null && nameInput.text != LocalPlayerName)
+                nameInput.text = LocalPlayerName;
+        }
+
+        private static void SetLocalName(string value)
+        {
+            LocalPlayerName = SanitizeName(value);
+            PlayerPrefs.SetString(PlayerNameKey, LocalPlayerName);
+            PlayerPrefs.Save();
+        }
+
+        private static string SanitizeName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "Player";
+
+            value = value.Trim();
+            if (value.Length > 24)
+                value = value.Substring(0, 24);
+            return value;
+        }
+
+        private static string GenerateRandomName()
+        {
+            int num = Random.Range(1000, 9999);
+            return $"Player{num}";
         }
 
         private enum GameMode
