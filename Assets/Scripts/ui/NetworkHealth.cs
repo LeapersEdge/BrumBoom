@@ -1,4 +1,5 @@
 using Fusion;
+using NetGame;
 using UnityEngine;
 
 public class NetworkHealth : NetworkBehaviour
@@ -9,6 +10,7 @@ public class NetworkHealth : NetworkBehaviour
     [Networked] public float Health { get; private set; }
     [Networked] public int Lives { get; private set; }
     [Networked] public int Kills { get; private set; }
+    [Networked] public NetworkBool IsEliminated { get; private set; }
 
     public float MaxHealth => maxHealth;
 
@@ -18,6 +20,18 @@ public class NetworkHealth : NetworkBehaviour
         {
             Health = maxHealth;
             Lives = startLives;
+            IsEliminated = false;
+        }
+
+        CacheComponents();
+        ApplyEliminatedState();
+    }
+
+    public override void Render()
+    {
+        if (_lastEliminated != IsEliminated)
+        {
+            ApplyEliminatedState();
         }
     }
 
@@ -29,6 +43,7 @@ public class NetworkHealth : NetworkBehaviour
     public void DealDamage(float amount, PlayerRef attacker)
     {
         if (!Object.HasStateAuthority) return;
+        if (IsEliminated) return;
 
         Health = Mathf.Max(0, Health - amount);
 
@@ -39,11 +54,14 @@ public class NetworkHealth : NetworkBehaviour
             if (Lives > 0)
             {
                 Health = maxHealth;
+                Respawn();
             }
             else
             {
                 TryAddKill(attacker);
-                Runner.Despawn(Object);
+                IsEliminated = true;
+                Health = 0f;
+                ApplyEliminatedState();
             }
         }
     }
@@ -71,6 +89,131 @@ public class NetworkHealth : NetworkBehaviour
             {
                 attackerHealth.Kills += 1;
             }
+        }
+    }
+
+    private Renderer[] _renderers;
+    private Collider[] _colliders;
+    private Rigidbody _rb;
+    private bool _cached;
+    private bool _spectatorTargetSet;
+    private bool _wasKinematic;
+    private bool _lastEliminated;
+
+    private void CacheComponents()
+    {
+        if (_cached) return;
+        _renderers = GetComponentsInChildren<Renderer>(includeInactive: true);
+        _colliders = GetComponentsInChildren<Collider>(includeInactive: true);
+        _rb = GetComponent<Rigidbody>();
+        _wasKinematic = _rb != null && _rb.isKinematic;
+        _cached = true;
+    }
+
+    private void ApplyEliminatedState()
+    {
+        CacheComponents();
+        _lastEliminated = IsEliminated;
+
+        if (IsEliminated)
+        {
+            if (_rb != null)
+            {
+                _rb.velocity = Vector3.zero;
+                _rb.angularVelocity = Vector3.zero;
+                _rb.isKinematic = true;
+            }
+
+            if (_colliders != null)
+            {
+                foreach (var col in _colliders)
+                {
+                    if (col != null) col.enabled = false;
+                }
+            }
+
+            if (_renderers != null)
+            {
+                foreach (var r in _renderers)
+                {
+                    if (r != null) r.enabled = false;
+                }
+            }
+
+            TrySetSpectatorTarget();
+        }
+        else
+        {
+            if (_rb != null)
+                _rb.isKinematic = _wasKinematic;
+
+            if (_colliders != null)
+            {
+                foreach (var col in _colliders)
+                {
+                    if (col != null) col.enabled = true;
+                }
+            }
+
+            if (_renderers != null)
+            {
+                foreach (var r in _renderers)
+                {
+                    if (r != null) r.enabled = true;
+                }
+            }
+
+            RestoreLocalCameraTarget();
+        }
+    }
+
+    private void TrySetSpectatorTarget()
+    {
+        if (_spectatorTargetSet) return;
+        if (!Object.HasInputAuthority) return;
+
+        var camLook = FindObjectOfType<NetCameraLook>();
+        if (camLook == null) return;
+
+        foreach (var nh in FindObjectsOfType<NetworkHealth>())
+        {
+            if (nh != null && nh != this && !nh.IsEliminated)
+            {
+                camLook.SetTarget(nh.transform);
+                _spectatorTargetSet = true;
+                return;
+            }
+        }
+    }
+
+    private void RestoreLocalCameraTarget()
+    {
+        if (!_spectatorTargetSet) return;
+        if (!Object.HasInputAuthority) return;
+
+        var camLook = FindObjectOfType<NetCameraLook>();
+        if (camLook == null) return;
+
+        camLook.SetTarget(transform);
+        _spectatorTargetSet = false;
+    }
+
+    private void Respawn()
+    {
+        if (GameBootstrap.Instance != null && GameBootstrap.Instance.TryGetSpawn(out var pos, out var rot))
+        {
+            transform.SetPositionAndRotation(pos, rot);
+        }
+        else
+        {
+            transform.position = Vector3.zero;
+            transform.rotation = Quaternion.identity;
+        }
+
+        if (_rb != null)
+        {
+            _rb.velocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
         }
     }
 }

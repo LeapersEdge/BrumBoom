@@ -31,6 +31,8 @@ namespace NetGame
             if (!Object.HasStateAuthority) return;
             if (!Runner.TryGetInputForPlayer(Object.InputAuthority, out CarInput input)) return;
             if (wheelController == null) return;
+            var health = GetComponent<NetworkHealth>();
+            if (health != null && health.IsEliminated) return;
 
             wheelController.SetExternalInput(input.Move.y, input.Steer, input.Brake);
         }

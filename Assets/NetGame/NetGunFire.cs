@@ -48,6 +48,10 @@ namespace NetGame
             if (!Object.HasStateAuthority)
                 return;
 
+            var health = GetComponent<NetworkHealth>();
+            if (health != null && health.IsEliminated)
+                return;
+
             // Consume input from the owning player
             if (Runner.TryGetInputForPlayer(Object.InputAuthority, out CarInput input))
             {

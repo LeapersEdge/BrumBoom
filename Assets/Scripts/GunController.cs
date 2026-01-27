@@ -10,6 +10,7 @@ public class GunController : MonoBehaviour
     [SerializeField] private Transform muzzleTransform;
 
     private Fusion.NetworkObject _netObj;
+    private NetworkHealth _health;
 
     [Header("Aiming")]
     [SerializeField] private float rotationSpeed = 5f;
@@ -37,6 +38,7 @@ public class GunController : MonoBehaviour
     private void Awake()
     {
         _netObj = GetComponentInParent<Fusion.NetworkObject>();
+        _health = GetComponentInParent<NetworkHealth>();
 
         // Ensure hitMask excludes LocalPlayer layer
         int localLayer = LayerMask.NameToLayer(localPlayerLayerName);
@@ -62,6 +64,8 @@ public class GunController : MonoBehaviour
     private void Update()
     {
         bool isLocal = _netObj == null || _netObj.HasInputAuthority;
+        if (isLocal && _health != null && _health.IsEliminated)
+            return;
         
         // Only calculate and apply rotation on local instance
         // Remote instances will have rotation applied by NetGunRotation component

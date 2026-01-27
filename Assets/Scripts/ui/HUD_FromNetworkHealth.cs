@@ -8,6 +8,7 @@ public class HUD_FromNetworkHealth : MonoBehaviour
     [SerializeField] private Slider healthSlider;
     [SerializeField] private TMP_Text hpText;
     [SerializeField] private TMP_Text livesText;
+    [SerializeField] private TMP_Text spectatorHint;
 
     private NetworkHealth target;
 
@@ -24,7 +25,10 @@ public class HUD_FromNetworkHealth : MonoBehaviour
 
         healthSlider.value = target.Health;
         hpText.text = $"HP: {Mathf.CeilToInt(target.Health)} / {Mathf.CeilToInt(target.MaxHealth)}";
-        livesText.text = $"Lives: {target.Lives}";
+        livesText.text = target.IsEliminated ? "Eliminated - Spectating" : $"Lives: {target.Lives}";
+
+        if (spectatorHint != null)
+            spectatorHint.text = target.IsEliminated ? "Spectate: Q/E" : string.Empty;
     }
 
     private NetworkHealth FindLocalPlayerNetworkHealth()

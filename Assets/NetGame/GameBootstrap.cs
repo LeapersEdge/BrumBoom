@@ -136,6 +136,12 @@ namespace NetGame
 
         public void OnInput(NetworkRunner runner, NetworkInput input)
         {
+            if (IsLocalEliminated(runner))
+            {
+                input.Set(new CarInput());
+                return;
+            }
+
             var data = new CarInput
             {
                 Move = new Vector2(
@@ -149,6 +155,14 @@ namespace NetGame
             };
 
             input.Set(data);
+        }
+
+        private static bool IsLocalEliminated(NetworkRunner runner)
+        {
+            if (runner == null) return false;
+            if (!runner.TryGetPlayerObject(runner.LocalPlayer, out var obj)) return false;
+            var health = obj.GetComponent<NetworkHealth>();
+            return health != null && health.IsEliminated;
         }
 
         private static Vector2 ReadTurretDir()

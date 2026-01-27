@@ -20,6 +20,8 @@ namespace NetGame
         private float _pitch;
         private float _distance;
         private bool _initialized;
+        private Transform _defaultTarget;
+        private bool _isSpectating;
 
         public override void Spawned()
         {
@@ -30,6 +32,7 @@ namespace NetGame
             }
 
             _initialized = false;
+            _defaultTarget = target;
         }
 
         private void Update()
@@ -39,6 +42,16 @@ namespace NetGame
 
             if (target == null)
                 return;
+
+            UpdateSpectatorState();
+
+            if (_isSpectating)
+            {
+                if (Input.GetKeyDown(KeyCode.Q))
+                    CycleTarget(-1);
+                else if (Input.GetKeyDown(KeyCode.E))
+                    CycleTarget(1);
+            }
 
             if (!_initialized)
                 InitializeFromOffset();
@@ -56,6 +69,61 @@ namespace NetGame
             transform.position = target.position + offset;
             transform.rotation = Quaternion.LookRotation(-offset.normalized, target.up);
 
+        }
+
+        public void SetTarget(Transform newTarget)
+        {
+            target = newTarget != null ? newTarget : _defaultTarget;
+            _initialized = false;
+        }
+
+        private void UpdateSpectatorState()
+        {
+            var localHealth = GetLocalHealth();
+            _isSpectating = localHealth != null && localHealth.IsEliminated;
+        }
+
+        private NetworkHealth GetLocalHealth()
+        {
+            foreach (var nh in FindObjectsOfType<NetworkHealth>())
+            {
+                var no = nh.GetComponent<NetworkObject>();
+                if (no != null && no.HasInputAuthority)
+                    return nh;
+            }
+            return null;
+        }
+
+        private void CycleTarget(int direction)
+        {
+            var all = FindObjectsOfType<NetworkHealth>();
+            if (all == null || all.Length == 0)
+                return;
+
+            var alive = new System.Collections.Generic.List<NetworkHealth>();
+            foreach (var nh in all)
+            {
+                if (nh != null && !nh.IsEliminated)
+                    alive.Add(nh);
+            }
+
+            if (alive.Count == 0)
+                return;
+
+            int currentIndex = 0;
+            for (int i = 0; i < alive.Count; i++)
+            {
+                if (alive[i] != null && alive[i].transform == target)
+                {
+                    currentIndex = i;
+                    break;
+                }
+            }
+
+            int next = (currentIndex + direction) % alive.Count;
+            if (next < 0) next += alive.Count;
+
+            SetTarget(alive[next].transform);
         }
 
         private void InitializeFromOffset()
