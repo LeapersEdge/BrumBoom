@@ -9,6 +9,7 @@ public class HUD_FromNetworkHealth : MonoBehaviour
     [SerializeField] private TMP_Text hpText;
     [SerializeField] private TMP_Text livesText;
     [SerializeField] private TMP_Text spectatorHint;
+    [SerializeField] private GameObject hudRoot;
 
     private NetworkHealth target;
 
@@ -22,6 +23,8 @@ public class HUD_FromNetworkHealth : MonoBehaviour
             healthSlider.minValue = 0;
             healthSlider.maxValue = target.MaxHealth;
         }
+
+        SetHudVisible(!target.IsEliminated);
 
         healthSlider.value = target.Health;
         hpText.text = $"HP: {Mathf.CeilToInt(target.Health)} / {Mathf.CeilToInt(target.MaxHealth)}";
@@ -40,5 +43,16 @@ public class HUD_FromNetworkHealth : MonoBehaviour
                 return nh;
         }
         return null;
+    }
+
+    private void SetHudVisible(bool visible)
+    {
+        if (hudRoot != null)
+            hudRoot.SetActive(visible);
+
+        if (healthSlider != null) healthSlider.gameObject.SetActive(visible);
+        if (hpText != null) hpText.gameObject.SetActive(visible);
+        if (livesText != null) livesText.gameObject.SetActive(visible);
+        if (spectatorHint != null) spectatorHint.gameObject.SetActive(visible);
     }
 }

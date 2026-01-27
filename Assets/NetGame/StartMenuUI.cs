@@ -13,6 +13,7 @@ namespace NetGame
         [SerializeField] private Button hostButton;
         [SerializeField] private Button clientButton;
         [SerializeField] private Button autoButton;
+        [SerializeField] private GameObject menuRoot;
 
         private bool _clicked;
 
@@ -27,6 +28,9 @@ namespace NetGame
                 clientButton.onClick.AddListener(OnClientClicked);
             if (autoButton != null)
                 autoButton.onClick.AddListener(OnAutoClicked);
+
+            if (menuRoot == null)
+                menuRoot = gameObject;
         }
 
         private void OnDestroy()
@@ -106,6 +110,10 @@ namespace NetGame
             // lock cursor after we start the network
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
+
+            // hide menu UI while in gameplay
+            if (menuRoot != null)
+                menuRoot.SetActive(false);
         }
 
         private enum GameMode
