@@ -83,6 +83,7 @@ GameObject:
   - component: {fileID: 4002676515221735337}
   - component: {fileID: 8369406947668502975}
   - component: {fileID: 8486519277144557327}
+  - component: {fileID: 905000000000000001}
   - component: {fileID: 7605460280770519819}
   - component: {fileID: 3479995444406016210}
   - component: {fileID: 3631969318326752934}
@@ -199,6 +200,22 @@ MonoBehaviour:
   debugOrbSurfaceOffset: 0.01
   impactPrefab: {fileID: 0}
   debugDraw: 1
+--- !u!114 &905000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 177647412956555469}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 04d4e7f5a9dbf8445b0067dc44e33933, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gunTransform: {fileID: 1677906598660702577}
+  gunController: {fileID: 8486519277144557327}
+  rotationSpeed: 5
+  yawOffsetDegrees: 180
 --- !u!114 &7605460280770519819
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -235,6 +252,7 @@ MonoBehaviour:
   Flags: 262145
   NestedObjects: []
   NetworkedBehaviours:
+  - {fileID: 905000000000000001}
   - {fileID: 3631969318326752934}
   - {fileID: 8552547104355191947}
   - {fileID: 1408540589379783288}

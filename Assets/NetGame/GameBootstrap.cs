@@ -12,6 +12,7 @@ namespace NetGame
     /// Starts the runner in Host/Client mode and handles player join/leave and input.
     /// Attach to an empty GameObject in the scene.
     /// </summary>
+    [RequireComponent(typeof(NetworkRunner))]
     public class GameBootstrap : MonoBehaviour, INetworkRunnerCallbacks
     {
         public static GameBootstrap Instance { get; private set; }
@@ -38,12 +39,8 @@ namespace NetGame
         public async void StartHost() => await StartRunner(GameMode.Host);
         public async void StartClient() => await StartRunner(GameMode.Client);
 
-        /// <summary>
-        /// Pokuša se spojiti kao klijent; ako nema sessiona, pokreće host.
-        /// </summary>
         public async void StartAuto()
         {
-            // First try as client; if no session, start as host.
             bool ok = await StartRunner(GameMode.Client);
             if (!ok)
                 await StartRunner(GameMode.Host);
@@ -51,69 +48,57 @@ namespace NetGame
 
         private async Task<bool> StartRunner(GameMode mode)
         {
-        // guard: prevent double start
-        if (_starting)
-        {
-            return false;
-        }
+            // guard: prevent double start
+            if (_starting) return false;
 
-        // reuse if already running
-        if (_runner != null && _runner.IsRunning)
-        {
+            // reuse if already running
+            if (_runner != null && _runner.IsRunning) return true;
+
+            // cleanup stale runner
+            if (_runner != null && _runner.IsRunning == false)
+            {
+                try { await _runner.Shutdown(); } catch { }
+                _runner = null;
+            }
+
+            // ensure runner exists
+            if (_runner == null) _runner = GetComponent<NetworkRunner>();
+
+            // ensure scene manager
+            var sceneManager = GetComponent<INetworkSceneManager>();
+            if (sceneManager == null)
+                sceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>();
+
+            _runner.ProvideInput = true;
+            _runner.AddCallbacks(this);
+            _starting = true;
+
+            var result = await _runner.StartGame(new StartGameArgs
+            {
+                GameMode = mode,
+                SessionName = sessionName,
+                Scene = SceneRef.FromIndex(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex),
+                SceneManager = sceneManager
+            });
+
+            _starting = false;
+
+            if (result.Ok == false)
+            {
+                try { await _runner.Shutdown(); } catch { }
+                _runner = null;
+                return false;
+            }
+
             return true;
-        }
-
-        // cleanup stale runner
-        if (_runner != null && _runner.IsRunning == false)
-        {
-            try { await _runner.Shutdown(); } catch { }
-            _runner = null;
-        }
-
-        // ensure runner exists
-        if (_runner == null)
-            _runner = GetComponent<NetworkRunner>();
-        if (_runner == null)
-            _runner = gameObject.AddComponent<NetworkRunner>();
-
-        // ensure scene manager
-        var sceneManager = GetComponent<INetworkSceneManager>();
-        if (sceneManager == null)
-            sceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>();
-
-        _runner.ProvideInput = true;
-        _runner.AddCallbacks(this);
-        _starting = true;
-        var result = await _runner.StartGame(new StartGameArgs
-        {
-            GameMode = mode,
-            SessionName = sessionName,
-            Scene = SceneRef.FromIndex(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex),
-            SceneManager = sceneManager
-        });
-        _starting = false;
-
-        if (result.Ok == false)
-        {
-            try { await _runner.Shutdown(); } catch { }
-            _runner = null;
-            return false;
-        }
-
-        return true;
         }
 
         #region INetworkRunnerCallbacks
 
         public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
         {
-            if (runner.IsServer == false)
-                return;
-
-            if (carPrefab == null)
-            {
-                return;
-            }
+            if (runner.IsServer == false) return;
+            if (carPrefab == null) return; 
 
             var spawn = spawnPoints.Count > 0
                 ? spawnPoints[_nextSpawn++ % spawnPoints.Count]
@@ -158,7 +143,7 @@ namespace NetGame
                     Input.GetAxisRaw("Vertical")
                 ),
                 Steer = Input.GetAxisRaw("Horizontal"),
-                Turret = ReadTurretInput(),
+                TurretDir = ReadTurretDir(),
                 Fire = ReadFireInput(),
                 Brake = Input.GetKey(KeyCode.Space)
             };
@@ -166,25 +151,25 @@ namespace NetGame
             input.Set(data);
         }
 
-        private static float ReadTurretInput()
+        private static Vector2 ReadTurretDir()
         {
-            float dir = 0f;
-            // NOTE:
-            // We intentionally do NOT use LeftArrow/RightArrow here because Unity's default
-            // "Horizontal" axis already maps to arrow keys. If we used arrows for turret too,
-            // one key press would rotate the turret AND steer the car, causing the "turret
-            // slightly rotates the car" bug.
-            if (Input.GetKey(KeyCode.Q))
-                dir -= 1f;
-            if (Input.GetKey(KeyCode.E))
-                dir += 1f;
-            return Mathf.Clamp(dir, -1f, 1f);
+            var cam = Camera.main;
+            if (cam == null)
+                return Vector2.zero;
+
+            Vector3 viewDir = cam.transform.forward;
+            viewDir.y = 0f;
+            if (viewDir.sqrMagnitude < 0.0001f)
+                return Vector2.zero;
+
+            viewDir.Normalize();
+            return new Vector2(viewDir.x, viewDir.z);
         }
 
         private static NetworkBool ReadFireInput()
         {
-            bool pressed = Input.GetKey(KeyCode.Space) || Input.GetMouseButton(0);
-            return pressed;
+            // Only left mouse button for firing (Space removed to avoid conflict with brake)
+            return Input.GetMouseButton(0);
         }
 
         // Unused callbacks for this prototype

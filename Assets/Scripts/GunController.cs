@@ -62,34 +62,39 @@ public class GunController : MonoBehaviour
     private void Update()
     {
         bool isLocal = _netObj == null || _netObj.HasInputAuthority;
-        if (!isLocal) return;
-
-        if (cameraTransform == null || gameplayCamera == null)
+        
+        // Only calculate and apply rotation on local instance
+        // Remote instances will have rotation applied by NetGunRotation component
+        if (isLocal)
         {
-            TryResolveCamera();
             if (cameraTransform == null || gameplayCamera == null)
-                return;
+            {
+                TryResolveCamera();
+                if (cameraTransform == null || gameplayCamera == null)
+                    return;
+            }
+
+            // Rotate turret toward camera forward (yaw only, local space friendly)
+            Vector3 viewDir = cameraTransform.forward;
+            viewDir.y = 0f;
+            if (viewDir.sqrMagnitude < 0.0001f)
+                viewDir = playerTransform.forward; // fallback
+            viewDir.Normalize();
+
+            // Apply yaw offset to compensate for model facing the opposite direction
+            Quaternion targetWorld = Quaternion.LookRotation(viewDir, Vector3.up) * Quaternion.Euler(0f, yawOffsetDegrees, 0f);
+            Quaternion targetLocal = gunTransform.parent != null
+                ? Quaternion.Inverse(gunTransform.parent.rotation) * targetWorld
+                : targetWorld;
+
+            gunTransform.localRotation = Quaternion.Slerp(
+                gunTransform.localRotation,
+                targetLocal,
+                rotationSpeed * Time.deltaTime);
         }
 
-        // Rotate turret toward camera forward (yaw only, local space friendly)
-        Vector3 viewDir = cameraTransform.forward;
-        viewDir.y = 0f;
-        if (viewDir.sqrMagnitude < 0.0001f)
-            viewDir = playerTransform.forward; // fallback
-        viewDir.Normalize();
-
-        // Apply yaw offset to compensate for model facing the opposite direction
-        Quaternion targetWorld = Quaternion.LookRotation(viewDir, Vector3.up) * Quaternion.Euler(0f, yawOffsetDegrees, 0f);
-        Quaternion targetLocal = gunTransform.parent != null
-            ? Quaternion.Inverse(gunTransform.parent.rotation) * targetWorld
-            : targetWorld;
-
-        gunTransform.localRotation = Quaternion.Slerp(
-            gunTransform.localRotation,
-            targetLocal,
-            rotationSpeed * Time.deltaTime);
-
-        if (Input.GetMouseButton(0) && Time.time >= nextFireTime)
+        // Fire input only on local instance
+        if (isLocal && Input.GetMouseButton(0) && Time.time >= nextFireTime)
             FireHitscan();
     }
 

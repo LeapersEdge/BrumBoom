@@ -28,16 +28,9 @@ namespace NetGame
 
         public override void FixedUpdateNetwork()
         {
-            if (!Object.HasStateAuthority)
-                return;
-
-            if (!Runner.TryGetInputForPlayer(Object.InputAuthority, out CarInput input))
-            {
-                return;
-            }
-
-            if (wheelController == null)
-                return;
+            if (!Object.HasStateAuthority) return;
+            if (!Runner.TryGetInputForPlayer(Object.InputAuthority, out CarInput input)) return;
+            if (wheelController == null) return;
 
             wheelController.SetExternalInput(input.Move.y, input.Steer, input.Brake);
         }
