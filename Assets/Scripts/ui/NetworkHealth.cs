@@ -8,6 +8,7 @@ public class NetworkHealth : NetworkBehaviour
     [SerializeField] private int startLives = 3;
     [SerializeField] private float spawnGhostDuration = 2f;
     [SerializeField] private float ghostAlpha = 0.35f;
+    [SerializeField] private Material ghostMaterial;
 
     [Networked] public float Health { get; private set; }
     [Networked] public int Lives { get; private set; }
@@ -156,6 +157,8 @@ public class NetworkHealth : NetworkBehaviour
     private bool _lastEliminated;
     private bool _lastGhost;
     private MaterialSnapshot[] _materialSnapshots;
+    private Material[][] _originalSharedMaterials;
+    private Material _ghostMaterialInstance;
 
     private void CacheComponents()
     {
@@ -165,6 +168,7 @@ public class NetworkHealth : NetworkBehaviour
         _rb = GetComponent<Rigidbody>();
         _wasKinematic = _rb != null && _rb.isKinematic;
         _cached = true;
+        CacheOriginalMaterials();
         CacheMaterialSnapshots();
     }
 
@@ -416,6 +420,12 @@ public class NetworkHealth : NetworkBehaviour
 
     private void SetGhostMaterials(bool ghost)
     {
+        if (ghostMaterial != null)
+        {
+            ApplyGhostMaterialSwap(ghost);
+            return;
+        }
+
         if (_materialSnapshots == null || _materialSnapshots.Length == 0)
             return;
 
@@ -474,6 +484,81 @@ public class NetworkHealth : NetworkBehaviour
     {
         if (enabled) mat.EnableKeyword(keyword);
         else mat.DisableKeyword(keyword);
+    }
+
+    private void CacheOriginalMaterials()
+    {
+        if (_originalSharedMaterials != null)
+            return;
+
+        if (_renderers == null || _renderers.Length == 0)
+        {
+            _originalSharedMaterials = System.Array.Empty<Material[]>();
+            return;
+        }
+
+        _originalSharedMaterials = new Material[_renderers.Length][];
+        for (int i = 0; i < _renderers.Length; i++)
+        {
+            var r = _renderers[i];
+            _originalSharedMaterials[i] = r != null ? r.sharedMaterials : System.Array.Empty<Material>();
+        }
+    }
+
+    private void ApplyGhostMaterialSwap(bool ghost)
+    {
+        if (_renderers == null || _renderers.Length == 0)
+            return;
+
+        var ghostMat = GetGhostMaterialInstance();
+        if (ghostMat == null)
+            return;
+
+        for (int i = 0; i < _renderers.Length; i++)
+        {
+            var r = _renderers[i];
+            if (r == null)
+                continue;
+
+            if (ghost)
+            {
+                int count = _originalSharedMaterials != null && i < _originalSharedMaterials.Length
+                    ? _originalSharedMaterials[i].Length
+                    : r.sharedMaterials.Length;
+
+                if (count <= 0)
+                    continue;
+
+                var ghostArray = new Material[count];
+                for (int m = 0; m < count; m++)
+                    ghostArray[m] = ghostMat;
+
+                r.sharedMaterials = ghostArray;
+            }
+            else if (_originalSharedMaterials != null && i < _originalSharedMaterials.Length)
+            {
+                r.sharedMaterials = _originalSharedMaterials[i];
+            }
+        }
+    }
+
+    private Material GetGhostMaterialInstance()
+    {
+        if (ghostMaterial == null)
+            return null;
+
+        if (_ghostMaterialInstance != null)
+            return _ghostMaterialInstance;
+
+        _ghostMaterialInstance = new Material(ghostMaterial);
+        if (_ghostMaterialInstance.HasProperty("_Color"))
+        {
+            var c = _ghostMaterialInstance.color;
+            c.a = ghostAlpha;
+            _ghostMaterialInstance.color = c;
+        }
+
+        return _ghostMaterialInstance;
     }
 
     private static string SanitizeName(string value)
