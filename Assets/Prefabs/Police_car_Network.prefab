@@ -84,6 +84,7 @@ GameObject:
   - component: {fileID: 8369406947668502975}
   - component: {fileID: 8486519277144557327}
   - component: {fileID: 905000000000000001}
+  - component: {fileID: 905000000000000002}
   - component: {fileID: 7605460280770519819}
   - component: {fileID: 3479995444406016210}
   - component: {fileID: 3631969318326752934}
@@ -216,6 +217,27 @@ MonoBehaviour:
   gunController: {fileID: 8486519277144557327}
   rotationSpeed: 5
   yawOffsetDegrees: 180
+--- !u!114 &905000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 177647412956555469}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2f4a7b6f2e1a0b4f8c4b8b1b6f1a2c3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  muzzleTransform: {fileID: 3471710021670707815}
+  projectileSpeed: 35
+  projectileLifetime: 2.5
+  projectileRadius: 0.1
+  damage: 10
+  hitMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  fireRate: 0.1
 --- !u!114 &7605460280770519819
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -253,6 +275,7 @@ MonoBehaviour:
   NestedObjects: []
   NetworkedBehaviours:
   - {fileID: 905000000000000001}
+  - {fileID: 905000000000000002}
   - {fileID: 3631969318326752934}
   - {fileID: 8552547104355191947}
   - {fileID: 1408540589379783288}

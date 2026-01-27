@@ -93,9 +93,7 @@ public class GunController : MonoBehaviour
                 rotationSpeed * Time.deltaTime);
         }
 
-        // Fire input only on local instance
-        if (isLocal && Input.GetMouseButton(0) && Time.time >= nextFireTime)
-            FireHitscan();
+        // Firing is handled by NetGunFire (server-authoritative projectiles)
     }
 
     private void FireHitscan()

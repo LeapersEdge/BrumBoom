@@ -8,6 +8,7 @@ public class NetworkHealth : NetworkBehaviour
 
     [Networked] public float Health { get; private set; }
     [Networked] public int Lives { get; private set; }
+    [Networked] public int Kills { get; private set; }
 
     public float MaxHealth => maxHealth;
 
@@ -22,6 +23,11 @@ public class NetworkHealth : NetworkBehaviour
 
     public void DealDamage(float amount)
     {
+        DealDamage(amount, default);
+    }
+
+    public void DealDamage(float amount, PlayerRef attacker)
+    {
         if (!Object.HasStateAuthority) return;
 
         Health = Mathf.Max(0, Health - amount);
@@ -31,9 +37,14 @@ public class NetworkHealth : NetworkBehaviour
             Lives = Mathf.Max(0, Lives - 1);
 
             if (Lives > 0)
+            {
                 Health = maxHealth;
+            }
             else
+            {
+                TryAddKill(attacker);
                 Runner.Despawn(Object);
+            }
         }
     }
 
@@ -45,6 +56,21 @@ public class NetworkHealth : NetworkBehaviour
     [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
     private void RPC_RequestDamage(float amount, RpcInfo info = default)
     {
-        DealDamage(amount);
+        DealDamage(amount, info.Source);
+    }
+
+    private void TryAddKill(PlayerRef attacker)
+    {
+        if (attacker == default)
+            return;
+
+        if (Runner.TryGetPlayerObject(attacker, out var attackerObj))
+        {
+            var attackerHealth = attackerObj.GetComponent<NetworkHealth>();
+            if (attackerHealth != null)
+            {
+                attackerHealth.Kills += 1;
+            }
+        }
     }
 }
