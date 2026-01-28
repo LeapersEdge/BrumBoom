@@ -16,14 +16,6 @@ namespace NetGame
         {
             if (wheelController == null)
                 wheelController = GetComponentInChildren<WheelController>();
-#region agent log
-            try
-            {
-                var payload = "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H5\",\"location\":\"NetWheelInput:Awake\",\"message\":\"wc ref\",\"data\":{\"hasWC\":" + (wheelController != null ? 1 : 0) + "},\"timestamp\":" + System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "}";
-                System.IO.File.AppendAllText(@"c:\Users\marti\Desktop\FER\UMRIGR\project\My project\.cursor\debug.log", payload + "\n", System.Text.Encoding.UTF8);
-            }
-            catch { }
-#endregion
         }
 
         public override void FixedUpdateNetwork()

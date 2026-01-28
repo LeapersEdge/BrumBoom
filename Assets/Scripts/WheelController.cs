@@ -49,14 +49,6 @@ public class WheelController : MonoBehaviour
 
     private void FixedUpdate()
     {
-#region agent log
-        try
-        {
-            var payload = "{\"sessionId\":\"debug-session\",\"runId\":\"pre-fix\",\"hypothesisId\":\"H2\",\"location\":\"WheelController:FixedUpdate\",\"message\":\"tick\",\"data\":{\"useExternal\":" + (useExternalInput ? 1 : 0) + ",\"extMove\":" + _extMoveInput + ",\"extSteer\":" + _extSteerInput + ",\"extBrake\":" + (_extBrake ? 1 : 0) + "},\"timestamp\":" + System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + "}";
-            System.IO.File.AppendAllText(@"c:\Users\marti\Desktop\FER\UMRIGR\project\My project\.cursor\debug.log", payload + "\n", System.Text.Encoding.UTF8);
-        }
-        catch { }
-#endregion
         float moveInput;
         float steerInput;
         bool isBraking;
