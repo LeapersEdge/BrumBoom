@@ -25,6 +25,9 @@ namespace NetGame
         private NetworkRunner _runner;
         private int _nextSpawn;
         private bool _starting;
+        private string _pendingSessionName;
+        private int _pendingMaxPlayers = -1;
+        private Dictionary<string, SessionProperty> _pendingSessionProperties;
 
         private void Awake()
         {
@@ -73,24 +76,46 @@ namespace NetGame
             _runner.AddCallbacks(this);
             _starting = true;
 
-            var result = await _runner.StartGame(new StartGameArgs
+            string chosenSessionName = string.IsNullOrWhiteSpace(_pendingSessionName) ? sessionName : _pendingSessionName;
+            Debug.Log($"[GameBootstrap] StartRunner: mode={mode}, session='{chosenSessionName}', sceneIndex={UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex}");
+            var args = new StartGameArgs
             {
                 GameMode = mode,
-                SessionName = sessionName,
+                SessionName = chosenSessionName,
                 Scene = SceneRef.FromIndex(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex),
                 SceneManager = sceneManager
-            });
+            };
+
+            if (_pendingMaxPlayers > 0)
+                args.PlayerCount = _pendingMaxPlayers;
+
+            if (_pendingSessionProperties != null && _pendingSessionProperties.Count > 0)
+                args.SessionProperties = _pendingSessionProperties;
+
+            var result = await _runner.StartGame(args);
 
             _starting = false;
 
             if (result.Ok == false)
             {
+                Debug.LogError($"[GameBootstrap] StartGame failed: {result.ShutdownReason} - {result.ErrorMessage}");
                 try { await _runner.Shutdown(); } catch { }
                 _runner = null;
                 return false;
             }
+            Debug.Log("[GameBootstrap] StartGame OK.");
 
+            _pendingSessionName = null;
+            _pendingMaxPlayers = -1;
+            _pendingSessionProperties = null;
             return true;
+        }
+
+        public void ConfigureSession(string name, int maxPlayers, Dictionary<string, SessionProperty> properties)
+        {
+            _pendingSessionName = string.IsNullOrWhiteSpace(name) ? null : name;
+            _pendingMaxPlayers = maxPlayers;
+            _pendingSessionProperties = properties;
         }
 
         #region INetworkRunnerCallbacks
