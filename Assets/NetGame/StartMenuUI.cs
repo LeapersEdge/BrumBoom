@@ -114,7 +114,6 @@ namespace NetGame
             else
                 AutoWireMenuElements();
             RefreshRuntimeBindings();
-            ApplyTheme();
             CacheFallbackFont();
             InitializeMapDropdown();
             ShowPlayMenu(false);
@@ -1828,50 +1827,6 @@ namespace NetGame
             template.SetActive(false);
 
             return dropdown;
-        }
-
-        private void ApplyTheme()
-        {
-            if (menuRoot != null)
-            {
-                var buttons = menuRoot.GetComponentsInChildren<Button>(true);
-                foreach (var button in buttons)
-                    ApplyButtonTheme(button);
-            }
-
-            ApplyButtonTheme(playButton);
-            ApplyButtonTheme(createTabButton);
-            ApplyButtonTheme(joinTabButton);
-            ApplyButtonTheme(createConfirmButton);
-            ApplyButtonTheme(backButton);
-            ApplyButtonTheme(joinSelectionButton);
-            ApplyButtonTheme(hostButton);
-            ApplyButtonTheme(clientButton);
-            ApplyButtonTheme(autoButton);
-        }
-
-        private static void ApplyButtonTheme(Button button)
-        {
-            if (button == null)
-                return;
-
-            var img = button.GetComponent<Image>();
-            if (img != null)
-                img.color = new Color(1f, 1f, 1f, 0.98f);
-
-            var text = button.GetComponentInChildren<TMP_Text>(true);
-            if (text != null)
-                text.color = Color.black;
-
-            var colors = button.colors;
-            colors.normalColor = new Color(1f, 1f, 1f, 0.98f);
-            colors.highlightedColor = new Color(0.92f, 0.92f, 0.92f, 1f);
-            colors.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
-            colors.selectedColor = colors.highlightedColor;
-            colors.disabledColor = new Color(0.8f, 0.8f, 0.8f, 0.6f);
-            colors.colorMultiplier = 1f;
-            colors.fadeDuration = 0.08f;
-            button.colors = colors;
         }
 
         private void HideForeignPanels(Transform root, Transform contentRoot)
