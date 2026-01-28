@@ -1,3 +1,4 @@
+using System.Linq;
 using Fusion;
 using NetGame;
 using UnityEngine;
@@ -135,6 +136,12 @@ public class NetworkHealth : NetworkBehaviour
             return;
 
         UpdateCollisionIgnores();
+
+        if (Runner.ActivePlayers.Count() < Runner.SessionInfo.MaxPlayers)
+        {
+            GhostUntil = Runner.SimulationTime + spawnGhostDuration;
+            return;
+        }
 
         if (Runner.SimulationTime < GhostUntil)
             return;
