@@ -189,6 +189,8 @@ MonoBehaviour:
   muzzleTransform: {fileID: 3471710021670707815}
   rotationSpeed: 5
   yawOffsetDegrees: 180
+  maxPitch: 60
+  minPitch: -30
   fireRate: 0.1
   range: 200
   damage: 1
@@ -568,7 +570,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   target: {fileID: 1478828481226017764}
   sensitivity: 2
-  minPitch: -60
+  minPitch: 10
   maxPitch: 60
   startYaw: 0
   startOffset: {x: 0, y: 5, z: -8}

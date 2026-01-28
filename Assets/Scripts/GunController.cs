@@ -100,18 +100,13 @@ public class GunController : MonoBehaviour
                 targetLocal,
                 rotationSpeed * Time.deltaTime);
         }
+        
+            ApplyCameraConstraints();
+        
 
         // Firing is handled by NetGunFire (server-authoritative projectiles)
     }
 
-    private void LateUpdate()
-    {
-        bool isLocal = _netObj == null || _netObj.HasInputAuthority;
-        if (isLocal)
-        {
-            ApplyCameraConstraints();
-        }
-    }
 
     private void FireHitscan()
     {
@@ -196,13 +191,23 @@ public class GunController : MonoBehaviour
 
     void ApplyCameraConstraints()
     {
-        float currentPitch = cameraTransform.localEulerAngles.x;
+        if (cameraTransform == null)
+            return;
 
-        if (currentPitch > 180f)
-            currentPitch -= 360f;
+        Vector3 forward = cameraTransform.forward;
 
-        float clampedPitch = Mathf.Clamp(currentPitch, minPitch, maxPitch);
+        Vector3 flatForward = new Vector3(forward.x, 0f, forward.z).normalized;
 
-        cameraTransform.localEulerAngles = new Vector3(clampedPitch, cameraTransform.localEulerAngles.y, cameraTransform.localEulerAngles.z);
+        float pitch = Vector3.Angle(forward, flatForward);
+        if (forward.y < 0f)
+            pitch = -pitch;
+        float clampedPitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+
+        if(Mathf.Abs(clampedPitch - pitch) > 0.01f)
+        {
+            Quaternion flatRotation = Quaternion.LookRotation(flatForward, Vector3.up);
+            Quaternion correction = Quaternion.AngleAxis(clampedPitch, cameraTransform.right);
+            cameraTransform.rotation = flatRotation * correction;
+        }
     }
 }
