@@ -84,7 +84,6 @@ public class MazeGenerator : MonoBehaviour
         }
 
         // generate spawn points
-        GameBootstrap gameBootstrap = GameObject.Find("GameBootstrap").GetComponent<GameBootstrap>();
         GameObject spawnPointsObj = GameObject.Find("SpawnPoints");
         for (int i = 0; i < 10; i++)
         {
@@ -96,8 +95,10 @@ public class MazeGenerator : MonoBehaviour
             position.z -= mazeCellSize/2;
             spawnPoint.transform.position = position;
             spawnPoint.transform.name = "sp" + i;
-            gameBootstrap.AddSpawnPoint(spawnPoint.transform);
         }
+
+        GameBootstrap gameBootstrap = GameObject.Find("GameBootstrap").GetComponent<GameBootstrap>();
+        gameBootstrap.RefreshSpawnPointsFromRoot();
     }
 
     void GenerateMazeShell()
