@@ -35,6 +35,8 @@ namespace NetGame
             Instance = this;
             if (GetComponent<InGamePauseMenu>() == null)
                 gameObject.AddComponent<InGamePauseMenu>();
+            if (GetComponent<MatchStateController>() == null)
+                gameObject.AddComponent<MatchStateController>();
         }
 
         public void AddSpawnPoint(Transform transform)

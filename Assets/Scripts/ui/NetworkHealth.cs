@@ -149,6 +149,16 @@ public class NetworkHealth : NetworkBehaviour
         }
     }
 
+    public void ForceGhost(bool ghost)
+    {
+        if (!Object.HasStateAuthority)
+            return;
+
+        IsGhost = ghost;
+        GhostUntil = ghost ? Runner.SimulationTime + 9999f : Runner.SimulationTime;
+        ApplyGhostState();
+    }
+
     private Renderer[] _renderers;
     private Collider[] _colliders;
     private Rigidbody _rb;

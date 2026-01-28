@@ -557,6 +557,8 @@ namespace NetGame
             {
                 if (!info.IsValid)
                     continue;
+                if (info.MaxPlayers > 0 && info.PlayerCount >= info.MaxPlayers)
+                    continue;
 
                 SessionListEntryUI entry = null;
                 if (sessionEntryPrefab != null)
