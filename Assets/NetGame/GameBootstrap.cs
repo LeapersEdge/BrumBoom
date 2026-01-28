@@ -21,6 +21,7 @@ namespace NetGame
         [SerializeField] private NetworkObject carPrefab;
         [SerializeField] private List<Transform> spawnPoints = new();
         [SerializeField] private string sessionName = "Room";
+        [SerializeField] private string mainMenuSceneName = "MainMenu";
 
         private NetworkRunner _runner;
         private int _nextSpawn;
@@ -226,7 +227,11 @@ namespace NetGame
         public void OnSceneLoadDone(NetworkRunner runner) { }
         public void OnSceneLoadStart(NetworkRunner runner) { }
         public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
-        public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason) { }
+        public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
+        {
+            if (!string.IsNullOrWhiteSpace(mainMenuSceneName))
+                UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(mainMenuSceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
+        }
         public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
 
         // Fusion 2 requires AOI callbacks on INetworkRunnerCallbacks
