@@ -421,9 +421,9 @@ MonoBehaviour:
   mazeOffset: {x: 0, y: 0}
   cullWalls: 1
   mazeParent: {fileID: 907148484}
-  percentWallsRemove: 0.25
-  percentWallsRising: 0.25
-  percentWallsFalling: 0.25
+  percentWallsRemove: 0.4
+  percentWallsRising: 0
+  percentWallsFalling: 0
   randomSeed: 10
 --- !u!4 &907148484
 Transform:
