@@ -12,8 +12,8 @@ namespace NetGame
     {
         [SerializeField] private Transform target; // player/car root or look target
         [SerializeField] private float sensitivity = 2f;
-        [SerializeField] private float minPitch = -80f;
-        [SerializeField] private float maxPitch = 80f;
+        [SerializeField] private float minPitch = 10f;
+        [SerializeField] private float maxPitch = 60f;
         [SerializeField] private float startYaw = 0f;
         [SerializeField] private Vector3 startOffset = new Vector3(0f, 5f, -8f); // higher & behind
         private float _yaw;
