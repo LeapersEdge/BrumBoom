@@ -23,14 +23,7 @@ namespace NetGame
         private const string PropertyMap = "map";
         private const string PropertyHost = "host";
         [SerializeField] private string gameplaySceneName = "Gameplay"; // Fallback scene name
-        [SerializeField] private Button hostButton;
-        [SerializeField] private Button clientButton;
-        [SerializeField] private Button autoButton;
-        [SerializeField] private Button playButton;
-        [SerializeField] private Button createTabButton;
-        [SerializeField] private Button joinTabButton;
         [SerializeField] private Button createConfirmButton;
-        [SerializeField] private Button backButton;
         [SerializeField] private GameObject menuRoot;
         [SerializeField] private TMP_InputField nameInput;
         [SerializeField] private GameObject mainButtonsRoot;
@@ -44,7 +37,6 @@ namespace NetGame
         [SerializeField] private SessionListEntryUI sessionEntryPrefab;
         [SerializeField] private Button joinSelectionButton;
         [SerializeField] private TMP_Text noGamesLabel;
-        [SerializeField] private bool useRuntimeUI = false;
         [SerializeField] private string[] mapSceneNames;
         [SerializeField] private string[] mapDisplayNames;
         [SerializeField] private bool randomizePlayerNameOnLaunch = true;
@@ -52,15 +44,12 @@ namespace NetGame
 
         public static string LocalPlayerName { get; private set; } = "Player";
 
-        private bool _clicked;
-        private NetworkRunner _lobbyRunner;
         private List<SessionInfo> _sessionList = new();
         private readonly List<SessionListEntryUI> _sessionEntries = new();
         private string _selectedSessionName;
         private bool _uiInitialized;
-        private bool _joinPanelBuilt;
         private TMP_FontAsset _fallbackFont;
-
+        private NetworkRunner _lobbyRunner;
         private static StartMenuUI _instance;
 
         private void Awake()
@@ -78,13 +67,6 @@ namespace NetGame
             DontDestroyOnLoad(gameObject);
             SceneManager.sceneLoaded += OnSceneLoaded;
 
-            if (hostButton != null)
-                hostButton.onClick.AddListener(OnHostClicked);
-            if (clientButton != null)
-                clientButton.onClick.AddListener(OnClientClicked);
-            if (autoButton != null)
-                autoButton.onClick.AddListener(OnAutoClicked);
-
             if (menuRoot == null)
                 menuRoot = gameObject;
 
@@ -96,28 +78,16 @@ namespace NetGame
             if (nameInput != null)
                 nameInput.onEndEdit.AddListener(OnNameEdited);
 
-            if (playButton != null)
-                playButton.onClick.AddListener(OnPlayClicked);
-            if (createTabButton != null)
-                createTabButton.onClick.AddListener(OnCreateTabClicked);
-            if (joinTabButton != null)
-                joinTabButton.onClick.AddListener(OnJoinTabClicked);
             if (createConfirmButton != null)
                 createConfirmButton.onClick.AddListener(OnCreateConfirmClicked);
-            if (backButton != null)
-                backButton.onClick.AddListener(BackToMain);
 
-            AutoWireLegacyButtons();
             TryAutoWirePlayMenuRoots();
-            if (useRuntimeUI)
-                EnsureRuntimeUI();
-            else
-                AutoWireMenuElements();
+            AutoWireMenuElements();
             RefreshRuntimeBindings();
             CacheFallbackFont();
             InitializeMapDropdown();
             ShowPlayMenu(false);
-            HideLegacyButtons();
+            _ = EnsureLobbyRunner();
         }
 
         private void OnDestroy()
@@ -126,44 +96,12 @@ namespace NetGame
                 _instance = null;
 
             SceneManager.sceneLoaded -= OnSceneLoaded;
-            if (hostButton != null)
-                hostButton.onClick.RemoveListener(OnHostClicked);
-            if (clientButton != null)
-                clientButton.onClick.RemoveListener(OnClientClicked);
-            if (autoButton != null)
-                autoButton.onClick.RemoveListener(OnAutoClicked);
 
             if (nameInput != null)
                 nameInput.onEndEdit.RemoveListener(OnNameEdited);
 
-            if (playButton != null)
-                playButton.onClick.RemoveListener(OnPlayClicked);
-            if (createTabButton != null)
-                createTabButton.onClick.RemoveListener(OnCreateTabClicked);
-            if (joinTabButton != null)
-                joinTabButton.onClick.RemoveListener(OnJoinTabClicked);
             if (createConfirmButton != null)
                 createConfirmButton.onClick.RemoveListener(OnCreateConfirmClicked);
-            if (backButton != null)
-                backButton.onClick.RemoveListener(BackToMain);
-        }
-
-        private void OnHostClicked()
-        {
-            if (_clicked) return;
-            StartCoroutine(LoadAndStart(GameMode.Host));
-        }
-
-        private void OnClientClicked()
-        {
-            if (_clicked) return;
-            StartCoroutine(LoadAndStart(GameMode.Client));
-        }
-
-        private void OnAutoClicked()
-        {
-            if (_clicked) return;
-            StartCoroutine(LoadAndStart(GameMode.AutoHostOrClient));
         }
 
         public void OnExitClicked()
@@ -176,19 +114,6 @@ namespace NetGame
             if (string.IsNullOrWhiteSpace(LocalPlayerName))
                 LocalPlayerName = PlayerPrefs.GetString(PlayerNameKey, "Player");
             return LocalPlayerName;
-        }
-
-        private void SetButtonsInteractable(bool value)
-        {
-            if (hostButton != null) hostButton.interactable = value;
-            if (clientButton != null) clientButton.interactable = value;
-            if (autoButton != null) autoButton.interactable = value;
-        }
-
-        private void ResetClickGate()
-        {
-            _clicked = false;
-            SetButtonsInteractable(true);
         }
 
         private void HideMenuUI()
@@ -230,117 +155,6 @@ namespace NetGame
                 nameInput.transform.SetParent(mainButtonsRoot.transform, false);
         }
 
-        private System.Collections.IEnumerator LoadAndStart(GameMode mode)
-        {
-            _clicked = true;
-            SetButtonsInteractable(false);
-
-            // Get the selected scene name from dropdown
-            string targetScene = GetSelectedMapScene();
-            
-            Debug.Log($"[StartMenuUI] Loading scene: {targetScene}");
-
-            // load gameplay scene
-            int buildIndex = GetBuildIndexByName(targetScene);
-            if (buildIndex < 0)
-            {
-                Debug.LogError($"[StartMenuUI] Scene '{targetScene}' not found in Build Settings.");
-                LogBuildScenes();
-                ResetClickGate();
-                yield break;
-            }
-
-            var op = SceneManager.LoadSceneAsync(buildIndex, LoadSceneMode.Single);
-            if (op == null)
-            {
-                Debug.LogError($"[StartMenuUI] Failed to load scene '{targetScene}'. Is it in Build Settings?");
-                ResetClickGate();
-                yield break;
-            }
-            while (!op.isDone)
-                yield return null;
-
-            // find bootstrap in loaded scene
-            var bootstrap = FindObjectOfType<GameBootstrap>();
-            if (bootstrap == null)
-            {
-                Debug.LogError("[StartMenuUI] GameBootstrap not found in gameplay scene.");
-                ResetClickGate();
-                yield break;
-            }
-
-            switch (mode)
-            {
-                case GameMode.Host:
-                    Debug.Log("[StartMenuUI] Starting Host...");
-                    bootstrap.StartHost();
-                    break;
-                case GameMode.Client:
-                    Debug.Log("[StartMenuUI] Starting Client...");
-                    bootstrap.StartClient();
-                    break;
-                case GameMode.AutoHostOrClient:
-                    Debug.Log("[StartMenuUI] Starting Auto...");
-                    bootstrap.StartAuto();
-                    break;
-            }
-
-            // lock cursor after we start the network
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-
-            // hide menu UI while in gameplay
-            HideMenuUI();
-        }
-
-        private void OnPlayClicked()
-        {
-            ShowPlayMenu(true);
-            _ = EnsureLobbyRunner();
-        }
-
-        private void OnCreateTabClicked() => ShowCreatePanel(true);
-        private void OnJoinTabClicked() => ShowCreatePanel(false);
-
-        private void ShowPlayMenu(bool show)
-        {
-            if (!_uiInitialized)
-                TryAutoWirePlayMenuRoots();
-
-            if (mainButtonsRoot != null)
-                mainButtonsRoot.SetActive(!show);
-            if (playMenuRoot != null)
-                playMenuRoot.SetActive(show);
-            if (nameInput != null)
-                nameInput.gameObject.SetActive(!show);
-
-            if (show)
-            {
-                if (useRuntimeUI && joinPanel != null)
-                {
-                    BuildJoinPanelContent(joinPanel.transform);
-                    _joinPanelBuilt = true;
-                    RefreshJoinPanelReferences();
-                }
-                ShowCreatePanel(true);
-                RebuildSessionList();
-            }
-        }
-
-        private void ShowCreatePanel(bool create)
-        {
-            if (createPanel != null)
-                createPanel.SetActive(create);
-            if (joinPanel != null)
-                joinPanel.SetActive(true);
-            UpdateJoinButtonState();
-        }
-
-        private void BackToMain()
-        {
-            ShowPlayMenu(false);
-        }
-
         private async Task EnsureLobbyRunner()
         {
             if (_lobbyRunner != null)
@@ -361,6 +175,34 @@ namespace NetGame
             {
                 // ignore; user can still host/join by name
             }
+        }
+
+        private void ShowPlayMenu(bool show)
+        {
+            if (!_uiInitialized)
+                TryAutoWirePlayMenuRoots();
+
+            if (mainButtonsRoot != null)
+                mainButtonsRoot.SetActive(!show);
+            if (playMenuRoot != null)
+                playMenuRoot.SetActive(show);
+            if (nameInput != null)
+                nameInput.gameObject.SetActive(!show);
+
+            if (show)
+            {
+                ShowCreatePanel(true);
+                RebuildSessionList();
+            }
+        }
+
+        private void ShowCreatePanel(bool create)
+        {
+            if (createPanel != null)
+                createPanel.SetActive(create);
+            if (joinPanel != null)
+                joinPanel.SetActive(true);
+            UpdateJoinButtonState();
         }
 
         private void OnCreateConfirmClicked()
@@ -395,7 +237,6 @@ namespace NetGame
             {
                 Debug.LogError($"[StartMenuUI] Scene '{mapScene}' not found in Build Settings.");
                 LogBuildScenes();
-                ResetClickGate();
                 yield break;
             }
 
@@ -403,7 +244,6 @@ namespace NetGame
             if (op == null)
             {
                 Debug.LogError($"Failed to load scene '{mapScene}' for hosting.");
-                ResetClickGate();
                 yield break;
             }
 
@@ -419,7 +259,6 @@ namespace NetGame
                 if (Time.realtimeSinceStartup - startTime > 15f)
                 {
                     Debug.LogError($"[StartMenuUI] Scene '{mapScene}' load timeout. progress={op.progress:0.00}");
-                    ResetClickGate();
                     yield break;
                 }
                 yield return null;
@@ -431,7 +270,6 @@ namespace NetGame
                 Debug.LogError("GameBootstrap not found in gameplay scene. Hosting cannot start.");
                 var found = FindObjectsOfType<GameBootstrap>(true);
                 Debug.LogWarning($"[StartMenuUI] GameBootstrap count in scene: {found.Length}");
-                ResetClickGate();
                 yield break;
             }
 
@@ -459,7 +297,6 @@ namespace NetGame
             {
                 Debug.LogError($"[StartMenuUI] Scene '{mapScene}' not found in Build Settings.");
                 LogBuildScenes();
-                ResetClickGate();
                 yield break;
             }
 
@@ -467,7 +304,6 @@ namespace NetGame
             if (op == null)
             {
                 Debug.LogError($"Failed to load scene '{mapScene}' for joining.");
-                ResetClickGate();
                 yield break;
             }
 
@@ -483,7 +319,6 @@ namespace NetGame
                 if (Time.realtimeSinceStartup - startTime > 15f)
                 {
                     Debug.LogError($"[StartMenuUI] Scene '{mapScene}' load timeout. progress={op.progress:0.00}");
-                    ResetClickGate();
                     yield break;
                 }
                 yield return null;
@@ -495,7 +330,6 @@ namespace NetGame
                 Debug.LogError("GameBootstrap not found in gameplay scene. Join cannot start.");
                 var found = FindObjectsOfType<GameBootstrap>(true);
                 Debug.LogWarning($"[StartMenuUI] GameBootstrap count in scene: {found.Length}");
-                ResetClickGate();
                 yield break;
             }
 
@@ -929,34 +763,6 @@ namespace NetGame
             Debug.Log($"[StartMenuUI] Build scenes: {string.Join(", ", list)}");
         }
 
-        private void AutoWireLegacyButtons()
-        {
-            if (hostButton == null)
-                hostButton = FindButtonByName("Host") ?? FindButtonByName("HostButton");
-            if (clientButton == null)
-                clientButton = FindButtonByName("Client") ?? FindButtonByName("ClientButton");
-            if (autoButton == null)
-                autoButton = FindButtonByName("Auto") ?? FindButtonByName("AutoButton");
-
-            if (mainButtonsRoot == null)
-            {
-                if (hostButton != null)
-                    mainButtonsRoot = hostButton.transform.parent.gameObject;
-                else if (menuRoot != null)
-                    mainButtonsRoot = menuRoot;
-            }
-        }
-
-        private void HideLegacyButtons()
-        {
-            if (hostButton != null)
-                hostButton.gameObject.SetActive(false);
-            if (clientButton != null)
-                clientButton.gameObject.SetActive(false);
-            if (autoButton != null)
-                autoButton.gameObject.SetActive(false);
-        }
-
         private void TryAutoWirePlayMenuRoots()
         {
             if (_uiInitialized)
@@ -992,10 +798,6 @@ namespace NetGame
             if (nameInput == null)
                 nameInput = FindChildByName(menuRoot.transform, "NameInput")?.GetComponent<TMP_InputField>();
 
-            if (playButton == null)
-                playButton = FindButtonByName("PlayButton");
-            if (backButton == null)
-                backButton = FindButtonByName("BackButton");
             if (createConfirmButton == null)
                 createConfirmButton = FindButtonByName("CreateConfirmButton");
             if (joinSelectionButton == null)
@@ -1022,297 +824,12 @@ namespace NetGame
                 sessionListRoot = FindChildByName(joinPanel.transform, "SessionListRoot")?.transform;
         }
 
-        private void EnsureRuntimeUI()
-        {
-            if (menuRoot == null)
-            {
-                var canvas = GetComponentInParent<Canvas>();
-                menuRoot = canvas != null ? canvas.gameObject : gameObject;
-            }
-
-            if (mainButtonsRoot == null && menuRoot != null)
-                mainButtonsRoot = FindChildByName(menuRoot.transform, "MainMenu") ?? menuRoot;
-
-            if (nameInput == null && mainButtonsRoot != null)
-            {
-                var nameBlock = CreatePanel("PlayerNameBlock", mainButtonsRoot.transform, new Vector2(360, 70));
-                nameBlock.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.25f);
-                var label = CreateLabel("Player Name", nameBlock.transform);
-                label.alignment = TextAlignmentOptions.MidlineLeft;
-                nameInput = CreateInputField("NameInput", nameBlock.transform, "Enter name...");
-            }
-            EnsureNameInputPlacement();
-
-            if (playButton == null && mainButtonsRoot != null)
-            {
-                playButton = CreateButton("PlayButton", mainButtonsRoot.transform, "Play");
-                var rect = playButton.GetComponent<RectTransform>();
-                rect.sizeDelta = new Vector2(220, 40);
-            }
-
-            if (playMenuRoot == null && menuRoot != null)
-            {
-                playMenuRoot = CreatePanel("PlayMenuRoot", menuRoot.transform, new Vector2(820, 440));
-                playMenuRoot.SetActive(false);
-            }
-
-            if (playMenuRoot != null)
-            {
-                var playRect = playMenuRoot.GetComponent<RectTransform>();
-                if (playRect != null)
-                    playRect.sizeDelta = new Vector2(820, 440);
-
-                var contentRoot = FindChildByName(playMenuRoot.transform, "PlayMenuContent");
-                if (contentRoot == null)
-                {
-                    var contentGo = new GameObject("PlayMenuContent");
-                    var rect = contentGo.AddComponent<RectTransform>();
-                    rect.SetParent(playMenuRoot.transform, false);
-                    rect.anchorMin = new Vector2(0.5f, 0.5f);
-                    rect.anchorMax = new Vector2(0.5f, 0.5f);
-                    rect.pivot = new Vector2(0.5f, 0.5f);
-                    rect.sizeDelta = new Vector2(800, 420);
-                    contentRoot = contentGo;
-
-                    var layout = contentGo.AddComponent<VerticalLayoutGroup>();
-                    layout.childAlignment = TextAnchor.UpperCenter;
-                    layout.spacing = 10f;
-                    layout.childControlWidth = true;
-                    layout.childForceExpandWidth = false;
-                    layout.childControlHeight = false;
-                    layout.childForceExpandHeight = false;
-                }
-                else
-                {
-                    var rect = contentRoot.GetComponent<RectTransform>();
-                    if (rect != null)
-                        rect.sizeDelta = new Vector2(800, 420);
-                }
-
-                var panelsRow = FindChildByName(contentRoot.transform, "PanelsRow");
-                if (panelsRow == null)
-                {
-                    var rowGo = new GameObject("PanelsRow");
-                    var rowRect = rowGo.AddComponent<RectTransform>();
-                    rowRect.SetParent(contentRoot.transform, false);
-                    rowRect.sizeDelta = new Vector2(780, 300);
-                    panelsRow = rowGo;
-
-                    var rowLayout = rowGo.AddComponent<HorizontalLayoutGroup>();
-                    rowLayout.childAlignment = TextAnchor.UpperCenter;
-                    rowLayout.spacing = 12f;
-                    rowLayout.childControlWidth = true;
-                    rowLayout.childForceExpandWidth = false;
-                }
-                else
-                {
-                    var rowRect = panelsRow.GetComponent<RectTransform>();
-                    if (rowRect != null)
-                        rowRect.sizeDelta = new Vector2(780, 300);
-                }
-
-                HideForeignPanels(playMenuRoot.transform, contentRoot.transform);
-                DisableForeignButtons(playMenuRoot.transform);
-
-                if (createPanel != null && createPanel.transform.parent != panelsRow.transform)
-                    createPanel.transform.SetParent(panelsRow.transform, false);
-                if (joinPanel != null && joinPanel.transform.parent != panelsRow.transform)
-                    joinPanel.transform.SetParent(panelsRow.transform, false);
-                if (backButton != null && backButton.transform.parent != contentRoot.transform)
-                    backButton.transform.SetParent(contentRoot.transform, false);
-
-                if (createTabButton != null)
-                    createTabButton.gameObject.SetActive(false);
-                if (joinTabButton != null)
-                    joinTabButton.gameObject.SetActive(false);
-
-                if (createPanel == null)
-                {
-                    createPanel = CreatePanel("CreatePanel", panelsRow.transform, new Vector2(340, 280));
-                    var layout = createPanel.AddComponent<VerticalLayoutGroup>();
-                    layout.childAlignment = TextAnchor.UpperCenter;
-                    layout.spacing = 8f;
-                    layout.childControlWidth = true;
-                    layout.childForceExpandWidth = true;
-                }
-                else
-                {
-                    var img = createPanel.GetComponent<Image>();
-                    if (img != null)
-                        img.color = new Color(0f, 0f, 0f, 0.45f);
-                    var rect = createPanel.GetComponent<RectTransform>();
-                    if (rect != null)
-                        rect.sizeDelta = new Vector2(340, 280);
-                }
-                if (createPanel != null)
-                {
-                    var layoutElement = createPanel.GetComponent<LayoutElement>();
-                    if (layoutElement == null)
-                        layoutElement = createPanel.AddComponent<LayoutElement>();
-                    layoutElement.preferredWidth = 340;
-                    layoutElement.preferredHeight = 280;
-                }
-
-                if (joinPanel == null)
-                {
-                    joinPanel = CreatePanel("JoinPanel", panelsRow.transform, new Vector2(420, 280));
-                    var layout = joinPanel.AddComponent<VerticalLayoutGroup>();
-                    layout.childAlignment = TextAnchor.UpperCenter;
-                    layout.spacing = 8f;
-                    layout.childControlWidth = true;
-                    layout.childForceExpandWidth = true;
-                }
-                else
-                {
-                    var img = joinPanel.GetComponent<Image>();
-                    if (img != null)
-                        img.color = new Color(0f, 0f, 0f, 0.45f);
-                    var rect = joinPanel.GetComponent<RectTransform>();
-                    if (rect != null)
-                        rect.sizeDelta = new Vector2(420, 280);
-                }
-                if (joinPanel != null)
-                {
-                    var layoutElement = joinPanel.GetComponent<LayoutElement>();
-                    if (layoutElement == null)
-                        layoutElement = joinPanel.AddComponent<LayoutElement>();
-                    layoutElement.preferredWidth = 420;
-                    layoutElement.preferredHeight = 280;
-                }
-
-                if (createPanel != null)
-                {
-                    if (FindChildByName(createPanel.transform, "CreateHeader") == null)
-                    {
-                        var header = CreateText("CreateHeader", createPanel.transform);
-                        header.text = "Create Game";
-                        header.fontSize = 18;
-                        header.alignment = TextAlignmentOptions.Center;
-                        header.color = Color.black;
-                    }
-
-                    if (createSessionNameInput == null)
-                        createSessionNameInput = CreateInputField("CreateSessionNameInput", createPanel.transform, "Game name...");
-                    if (maxPlayersInput == null)
-                        maxPlayersInput = CreateInputField("MaxPlayersInput", createPanel.transform, "Max players (e.g. 8)");
-                    if (mapDropdown == null)
-                    {
-                        mapDropdown = CreateDropdown("MapDropdown", createPanel.transform);
-                        mapDropdown.onValueChanged.AddListener((value) => {
-                            Debug.Log($"Dropdown value changed to {value}. Template active: {mapDropdown.template.gameObject.activeSelf}");
-                        });
-                    }
-                    if (createConfirmButton == null)
-                        createConfirmButton = CreateButton("CreateConfirmButton", createPanel.transform, "Create");
-                }
-
-                if (joinPanel != null)
-                {
-                    var joinHeader = FindChildByName(joinPanel.transform, "JoinHeader");
-                    if (joinHeader != null)
-                        joinHeader.SetActive(false);
-
-                    if (!_joinPanelBuilt)
-                    {
-                        BuildJoinPanelContent(joinPanel.transform);
-                        _joinPanelBuilt = true;
-                    }
-
-                    if (joinSelectionButton == null)
-                        joinSelectionButton = CreateButton("JoinSelectionButton", contentRoot.transform, "Join Selected");
-
-                    CleanupJoinPanel(joinPanel.transform);
-                }
-
-                var bottomRow = FindChildByName(contentRoot.transform, "BottomRow");
-                if (bottomRow == null)
-                {
-                    var rowGo = new GameObject("BottomRow");
-                    var rowRect = rowGo.AddComponent<RectTransform>();
-                    rowRect.SetParent(contentRoot.transform, false);
-                    rowRect.sizeDelta = new Vector2(420, 40);
-                    bottomRow = rowGo;
-
-                    var rowLayout = rowGo.AddComponent<HorizontalLayoutGroup>();
-                    rowLayout.childAlignment = TextAnchor.MiddleCenter;
-                    rowLayout.spacing = 12f;
-                    rowLayout.childControlWidth = true;
-                    rowLayout.childForceExpandWidth = false;
-                }
-
-                if (joinSelectionButton != null && joinSelectionButton.transform.parent != bottomRow.transform)
-                    joinSelectionButton.transform.SetParent(bottomRow.transform, false);
-
-                if (backButton == null)
-                    backButton = CreateButton("BackButton", bottomRow.transform, "Back");
-                else if (backButton.transform.parent != bottomRow.transform)
-                    backButton.transform.SetParent(bottomRow.transform, false);
-                if (backButton != null)
-                {
-                    backButton.gameObject.SetActive(true);
-                    var rect = backButton.GetComponent<RectTransform>();
-                    if (rect != null)
-                        rect.sizeDelta = new Vector2(200, 34);
-                    var layout = backButton.GetComponent<LayoutElement>();
-                    if (layout == null)
-                        layout = backButton.gameObject.AddComponent<LayoutElement>();
-                    layout.preferredHeight = 34;
-                    layout.preferredWidth = 200;
-                    layout.minHeight = 34;
-                    layout.minWidth = 200;
-                    var label = backButton.GetComponentInChildren<TMP_Text>(true);
-                    if (label == null)
-                    {
-                        var labelGo = new GameObject("Text");
-                        labelGo.transform.SetParent(backButton.transform, false);
-                        label = labelGo.AddComponent<TextMeshProUGUI>();
-                    }
-                    label.text = "Back";
-                    label.alignment = TextAlignmentOptions.Center;
-                    label.fontSize = 16;
-                    label.color = Color.white;
-                }
-
-                if (joinSelectionButton != null)
-                {
-                    var rect = joinSelectionButton.GetComponent<RectTransform>();
-                    if (rect != null)
-                        rect.sizeDelta = new Vector2(200, 34);
-                    var layout = joinSelectionButton.GetComponent<LayoutElement>();
-                    if (layout == null)
-                        layout = joinSelectionButton.gameObject.AddComponent<LayoutElement>();
-                    layout.preferredHeight = 34;
-                    layout.preferredWidth = 200;
-                    layout.minHeight = 34;
-                    layout.minWidth = 200;
-                }
-            }
-        }
-
         private void RefreshRuntimeBindings()
         {
-            if (playButton != null)
-            {
-                playButton.onClick.RemoveListener(OnPlayClicked);
-                playButton.onClick.AddListener(OnPlayClicked);
-            }
-
-            if (createTabButton != null)
-                createTabButton.onClick.RemoveListener(OnCreateTabClicked);
-
-            if (joinTabButton != null)
-                joinTabButton.onClick.RemoveListener(OnJoinTabClicked);
-
             if (createConfirmButton != null)
             {
                 createConfirmButton.onClick.RemoveListener(OnCreateConfirmClicked);
                 createConfirmButton.onClick.AddListener(OnCreateConfirmClicked);
-            }
-
-            if (backButton != null)
-            {
-                backButton.onClick.RemoveListener(BackToMain);
-                backButton.onClick.AddListener(BackToMain);
             }
 
             if (joinSelectionButton != null)
@@ -1359,7 +876,6 @@ namespace NetGame
                 
                 // Reset UI state
                 ShowPlayMenu(false);
-                ResetClickGate();
                 
                 // Unlock cursor
                 Cursor.lockState = CursorLockMode.None;
@@ -1379,34 +895,6 @@ namespace NetGame
             }
 
             return false;
-        }
-
-        private void DisableForeignButtons(Transform root)
-        {
-            if (root == null)
-                return;
-
-            var buttons = root.GetComponentsInChildren<Button>(true);
-            foreach (var button in buttons)
-            {
-                if (button == null)
-                    continue;
-
-                if (button == playButton || button == createTabButton || button == joinTabButton ||
-                    button == createConfirmButton || button == backButton || button == joinSelectionButton)
-                    continue;
-
-                if (sessionListRoot != null && button.transform.IsChildOf(sessionListRoot))
-                    continue;
-
-                if (button.name.Contains("Host") || button.name.Contains("Client") || button.name.Contains("Auto"))
-                {
-                    button.gameObject.SetActive(false);
-                    continue;
-                }
-
-                button.interactable = false;
-            }
         }
 
         private static Button FindButtonByName(string name)
@@ -1436,80 +924,6 @@ namespace NetGame
             }
 
             return null;
-        }
-
-        private static void CleanupJoinPanel(Transform joinPanelRoot)
-        {
-            if (joinPanelRoot == null)
-                return;
-
-            foreach (Transform child in joinPanelRoot)
-            {
-                if (child == null)
-                    continue;
-
-                if (child.name == "SessionListScroll" || child.name == "SessionListRoot")
-                    continue;
-
-                child.gameObject.SetActive(false);
-            }
-        }
-
-        private void BuildJoinPanelContent(Transform joinPanelRoot)
-        {
-            if (joinPanelRoot == null)
-                return;
-
-            for (int i = joinPanelRoot.childCount - 1; i >= 0; i--)
-                Destroy(joinPanelRoot.GetChild(i).gameObject);
-
-            var scrollGo = new GameObject("SessionListScroll");
-            var scrollRect = scrollGo.AddComponent<RectTransform>();
-            scrollRect.SetParent(joinPanelRoot, false);
-            scrollRect.sizeDelta = new Vector2(400, 240);
-            var scrollBg = scrollGo.AddComponent<Image>();
-            scrollBg.color = new Color(0.9f, 0.9f, 0.9f, 0.98f);
-            var scroll = scrollGo.AddComponent<ScrollRect>();
-
-            var content = new GameObject("SessionListRoot");
-            var contentRect = content.AddComponent<RectTransform>();
-            contentRect.SetParent(scrollGo.transform, false);
-            contentRect.anchorMin = new Vector2(0f, 1f);
-            contentRect.anchorMax = new Vector2(1f, 1f);
-            contentRect.pivot = new Vector2(0.5f, 1f);
-            contentRect.offsetMin = new Vector2(0f, 0f);
-            contentRect.offsetMax = new Vector2(0f, 0f);
-            var layout = content.AddComponent<VerticalLayoutGroup>();
-            layout.childAlignment = TextAnchor.UpperCenter;
-            layout.spacing = 6f;
-            layout.childControlWidth = true;
-            layout.childForceExpandWidth = true;
-            layout.childControlHeight = false;
-            layout.childForceExpandHeight = false;
-            var fitter = content.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            scroll.content = contentRect;
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 20f;
-
-            var layoutElement = scrollGo.AddComponent<LayoutElement>();
-            layoutElement.preferredWidth = 400;
-            layoutElement.preferredHeight = 240;
-
-            sessionListRoot = content.transform;
-            noGamesLabel = null;
-        }
-
-        private void RefreshJoinPanelReferences()
-        {
-            if (joinPanel == null)
-                return;
-
-            sessionListRoot = FindChildByName(joinPanel.transform, "SessionListRoot")?.transform;
-            noGamesLabel = null;
         }
 
         private SessionListEntryUI CreateRuntimeSessionEntry(Transform parent)
@@ -1579,271 +993,6 @@ namespace NetGame
             text.alignment = TextAlignmentOptions.MidlineLeft;
             text.color = Color.black;
             return text;
-        }
-
-        private static Button CreateButton(string label, Transform parent)
-        {
-            var go = new GameObject(label);
-            go.transform.SetParent(parent, false);
-            var img = go.AddComponent<Image>();
-            img.color = new Color(1f, 1f, 1f, 0.98f);
-            var btn = go.AddComponent<Button>();
-
-            var textGo = new GameObject("Text");
-            textGo.transform.SetParent(go.transform, false);
-            var text = textGo.AddComponent<TextMeshProUGUI>();
-            text.text = label;
-            text.alignment = TextAlignmentOptions.Center;
-            text.fontSize = 16;
-            text.color = Color.black;
-            return btn;
-        }
-
-        private static Button CreateButton(string name, Transform parent, string label)
-        {
-            var btn = CreateButton(label, parent);
-            btn.gameObject.name = name;
-            return btn;
-        }
-
-        private static GameObject CreatePanel(string name, Transform parent, Vector2 size)
-        {
-            var go = new GameObject(name);
-            var rect = go.AddComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.sizeDelta = size;
-            var img = go.AddComponent<Image>();
-            img.color = new Color(0.92f, 0.92f, 0.92f, 0.98f);
-            return go;
-        }
-
-        private static TMP_Text CreateLabel(string text, Transform parent)
-        {
-            var go = new GameObject("Label");
-            go.transform.SetParent(parent, false);
-            var label = go.AddComponent<TextMeshProUGUI>();
-            label.text = text;
-            label.fontSize = 18;
-            label.alignment = TextAlignmentOptions.MidlineLeft;
-            label.color = Color.black;
-            return label;
-        }
-
-        private static TMP_InputField CreateInputField(string name, Transform parent, string placeholder)
-        {
-            var go = new GameObject(name);
-            var rect = go.AddComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.sizeDelta = new Vector2(480, 34);
-
-            var img = go.AddComponent<Image>();
-            img.color = new Color(1f, 1f, 1f, 0.95f);
-
-            var input = go.AddComponent<TMP_InputField>();
-
-            var textGo = new GameObject("Text");
-            textGo.transform.SetParent(go.transform, false);
-            var text = textGo.AddComponent<TextMeshProUGUI>();
-            text.fontSize = 18;
-            text.color = new Color(0f, 0f, 0f, 1f);
-            text.alignment = TextAlignmentOptions.MidlineLeft;
-            var textRect = text.GetComponent<RectTransform>();
-            textRect.anchorMin = new Vector2(0f, 0f);
-            textRect.anchorMax = new Vector2(1f, 1f);
-            textRect.offsetMin = new Vector2(10f, 6f);
-            textRect.offsetMax = new Vector2(-10f, -6f);
-
-            var placeholderGo = new GameObject("Placeholder");
-            placeholderGo.transform.SetParent(go.transform, false);
-            var placeholderText = placeholderGo.AddComponent<TextMeshProUGUI>();
-            placeholderText.fontSize = 18;
-            placeholderText.color = new Color(0f, 0f, 0f, 0.5f);
-            placeholderText.alignment = TextAlignmentOptions.MidlineLeft;
-            placeholderText.text = placeholder;
-            var placeholderRect = placeholderText.GetComponent<RectTransform>();
-            placeholderRect.anchorMin = new Vector2(0f, 0f);
-            placeholderRect.anchorMax = new Vector2(1f, 1f);
-            placeholderRect.offsetMin = new Vector2(10f, 6f);
-            placeholderRect.offsetMax = new Vector2(-10f, -6f);
-
-            input.textComponent = text;
-            input.placeholder = placeholderText;
-            input.pointSize = 20;
-
-            return input;
-        }
-
-        private static TMP_Dropdown CreateDropdown(string name, Transform parent)
-        {
-            var go = new GameObject(name);
-            var rect = go.AddComponent<RectTransform>();
-            rect.SetParent(parent, false);
-            rect.sizeDelta = new Vector2(480, 34);
-            var img = go.AddComponent<Image>();
-            img.color = new Color(1f, 1f, 1f, 0.95f);
-
-            var dropdown = go.AddComponent<TMP_Dropdown>();
-
-            var labelGo = new GameObject("Label");
-            labelGo.transform.SetParent(go.transform, false);
-            var label = labelGo.AddComponent<TextMeshProUGUI>();
-            label.fontSize = 18;
-            label.color = new Color(0f, 0f, 0f, 1f);
-            label.alignment = TextAlignmentOptions.MidlineLeft;
-            var labelRect = label.GetComponent<RectTransform>();
-            labelRect.anchorMin = new Vector2(0f, 0f);
-            labelRect.anchorMax = new Vector2(1f, 1f);
-            labelRect.offsetMin = new Vector2(10f, 6f);
-            labelRect.offsetMax = new Vector2(-30f, -6f);
-
-            var arrowGo = new GameObject("Arrow");
-            arrowGo.transform.SetParent(go.transform, false);
-            var arrowText = arrowGo.AddComponent<TextMeshProUGUI>();
-            arrowText.text = "v";
-            arrowText.fontSize = 18;
-            arrowText.alignment = TextAlignmentOptions.MidlineRight;
-            var arrowRect = arrowText.GetComponent<RectTransform>();
-            arrowRect.anchorMin = new Vector2(1f, 0f);
-            arrowRect.anchorMax = new Vector2(1f, 1f);
-            arrowRect.sizeDelta = new Vector2(20f, 0f);
-            arrowRect.anchoredPosition = new Vector2(-10f, 0f);
-
-            var template = new GameObject("Template");
-            var templateRect = template.AddComponent<RectTransform>();
-            templateRect.SetParent(go.transform, false);
-    
-            templateRect.anchorMin = new Vector2(0f, 0f);  // Anchor to bottom-left
-            templateRect.anchorMax = new Vector2(1f, 0f);  // Stretch width, anchor height to bottom
-            templateRect.pivot = new Vector2(0.5f, 1f);    // Pivot from top-center (drops downward)
-            templateRect.anchoredPosition = new Vector2(0f, 0f);  // Position directly below
-            templateRect.sizeDelta = new Vector2(0f, 200f);  // Width matches parent, fixed height
-    
-            var templateImg = template.AddComponent<Image>();
-            templateImg.color = new Color(1f, 1f, 1f, 0.95f);
-            var scrollRect = template.AddComponent<ScrollRect>();
-            template.SetActive(false);
-
-            // Add Canvas and GraphicRaycaster here too (similar to your InitializeMapDropdown fix)
-            var templateCanvas = template.AddComponent<Canvas>();
-            templateCanvas.overrideSorting = true;
-            templateCanvas.sortingOrder = 30000;  // High order to appear on top
-            template.AddComponent<GraphicRaycaster>();
-
-            var viewport = new GameObject("Viewport");
-            var viewportRect = viewport.AddComponent<RectTransform>();
-            viewportRect.SetParent(template.transform, false);
-            viewportRect.anchorMin = new Vector2(0f, 0f);
-            viewportRect.anchorMax = new Vector2(1f, 1f);
-            viewportRect.offsetMin = Vector2.zero;
-            viewportRect.offsetMax = Vector2.zero;
-            viewport.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.95f);
-            var mask = viewport.AddComponent<Mask>();
-            mask.showMaskGraphic = false;
-
-            var content = new GameObject("Content");
-            var contentRect = content.AddComponent<RectTransform>();
-            contentRect.SetParent(viewport.transform, false);
-            contentRect.anchorMin = new Vector2(0f, 1f);
-            contentRect.anchorMax = new Vector2(1f, 1f);
-            contentRect.pivot = new Vector2(0.5f, 1f);
-            contentRect.offsetMin = new Vector2(0f, 0f);
-            contentRect.offsetMax = new Vector2(0f, 0f);
-            var contentLayout = content.AddComponent<VerticalLayoutGroup>();
-            contentLayout.childAlignment = TextAnchor.UpperLeft;
-            contentLayout.childControlHeight = true;
-            contentLayout.childControlWidth = true;
-            contentLayout.childForceExpandHeight = false;
-            contentLayout.childForceExpandWidth = true;
-            content.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            // Optional: Add vertical scrollbar for long lists
-            var scrollbarGo = new GameObject("Scrollbar Vertical");
-            var scrollbarRect = scrollbarGo.AddComponent<RectTransform>();
-            scrollbarRect.SetParent(template.transform, false);
-            scrollbarRect.anchorMin = new Vector2(1f, 0f);
-            scrollbarRect.anchorMax = new Vector2(1f, 1f);
-            scrollbarRect.sizeDelta = new Vector2(20f, 0f);
-            scrollbarRect.anchoredPosition = new Vector2(0f, 0f);
-            var scrollbarImg = scrollbarGo.AddComponent<Image>();
-            scrollbarImg.color = new Color(0.9f, 0.9f, 0.9f, 1f);
-            var scrollbar = scrollbarGo.AddComponent<Scrollbar>();
-            scrollbar.direction = Scrollbar.Direction.BottomToTop;
-
-            var slidingArea = new GameObject("Sliding Area");
-            slidingArea.transform.SetParent(scrollbarGo.transform, false);
-            var slidingRect = slidingArea.AddComponent<RectTransform>();
-            slidingRect.anchorMin = Vector2.zero;
-            slidingRect.anchorMax = Vector2.one;
-            slidingRect.offsetMin = new Vector2(5f, 5f);
-            slidingRect.offsetMax = new Vector2(-5f, -5f);
-
-            var handle = new GameObject("Handle");
-            handle.transform.SetParent(slidingArea.transform, false);
-            var handleRect = handle.AddComponent<RectTransform>();
-            handleRect.anchorMin = Vector2.zero;
-            handleRect.anchorMax = Vector2.one;
-            handleRect.offsetMin = Vector2.zero;
-            handleRect.offsetMax = Vector2.zero;
-            handle.AddComponent<Image>().color = new Color(0.75f, 0.75f, 0.75f, 1f);
-
-            scrollbar.targetGraphic = handle.GetComponent<Image>();
-            scrollbar.handleRect = handleRect;
-            scrollRect.verticalScrollbar = scrollbar;
-            scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
-
-            scrollRect.content = contentRect;
-            scrollRect.viewport = viewportRect;
-            scrollRect.horizontal = false;
-
-            var item = new GameObject("Item");
-            var itemRect = item.AddComponent<RectTransform>();
-            itemRect.SetParent(content.transform, false);
-            itemRect.sizeDelta = new Vector2(0f, 30f);
-            var itemToggle = item.AddComponent<Toggle>();
-            var itemBg = item.AddComponent<Image>();
-            itemBg.color = new Color(1f, 1f, 1f, 1f);
-            itemToggle.targetGraphic = itemBg;
-
-            var itemLabelGo = new GameObject("ItemLabel");
-            itemLabelGo.transform.SetParent(item.transform, false);
-            var itemLabel = itemLabelGo.AddComponent<TextMeshProUGUI>();
-            itemLabel.fontSize = 18;
-            itemLabel.color = new Color(0f, 0f, 0f, 1f);
-            itemLabel.alignment = TextAlignmentOptions.MidlineLeft;
-            var itemLabelRect = itemLabel.GetComponent<RectTransform>();
-            itemLabelRect.anchorMin = new Vector2(0f, 0f);
-            itemLabelRect.anchorMax = new Vector2(1f, 1f);
-            itemLabelRect.offsetMin = new Vector2(10f, 4f);
-            itemLabelRect.offsetMax = new Vector2(-10f, -4f);
-
-            dropdown.template = templateRect;
-            dropdown.captionText = label;
-            dropdown.itemText = itemLabel;
-            dropdown.targetGraphic = img;
-
-            // Force initialization by toggling active state
-            template.SetActive(true);
-            LayoutRebuilder.ForceRebuildLayoutImmediate(templateRect);
-            template.SetActive(false);
-
-            return dropdown;
-        }
-
-        private void HideForeignPanels(Transform root, Transform contentRoot)
-        {
-            if (root == null || contentRoot == null)
-                return;
-
-            foreach (Transform child in root)
-            {
-                if (child == contentRoot)
-                    continue;
-
-                if (child == createPanel || child == joinPanel)
-                    continue;
-
-                child.gameObject.SetActive(false);
-            }
         }
 
         public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
