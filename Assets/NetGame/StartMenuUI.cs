@@ -41,6 +41,7 @@ namespace NetGame
         [SerializeField] private SessionListEntryUI sessionEntryPrefab;
         [SerializeField] private Button joinSelectionButton;
         [SerializeField] private TMP_Text noGamesLabel;
+        [SerializeField] private bool useRuntimeUI = false;
         [SerializeField] private string[] mapSceneNames;
         [SerializeField] private string[] mapDisplayNames;
 
@@ -92,7 +93,10 @@ namespace NetGame
 
             AutoWireLegacyButtons();
             TryAutoWirePlayMenuRoots();
-            EnsureRuntimeUI();
+            if (useRuntimeUI)
+                EnsureRuntimeUI();
+            else
+                AutoWireMenuElements();
             RefreshRuntimeBindings();
             ApplyTheme();
             CacheFallbackFont();
@@ -275,7 +279,7 @@ namespace NetGame
 
             if (show)
             {
-                if (joinPanel != null)
+                if (useRuntimeUI && joinPanel != null)
                 {
                     BuildJoinPanelContent(joinPanel.transform);
                     _joinPanelBuilt = true;
@@ -835,8 +839,45 @@ namespace NetGame
                 joinPanel = FindChildByName(playMenuRoot.transform, "JoinPanel");
             if (sessionListRoot == null && playMenuRoot != null)
                 sessionListRoot = FindChildByName(playMenuRoot.transform, "SessionListRoot")?.transform;
+            if (joinSelectionButton == null && playMenuRoot != null)
+                joinSelectionButton = FindButtonByName("JoinSelectionButton");
+            if (noGamesLabel == null && playMenuRoot != null)
+                noGamesLabel = FindChildByName(playMenuRoot.transform, "NoGamesLabel")?.GetComponent<TMP_Text>();
 
             _uiInitialized = true;
+        }
+
+        private void AutoWireMenuElements()
+        {
+            if (menuRoot == null)
+            {
+                var canvas = GetComponentInParent<Canvas>();
+                menuRoot = canvas != null ? canvas.gameObject : gameObject;
+            }
+
+            if (mainButtonsRoot == null && menuRoot != null)
+                mainButtonsRoot = FindChildByName(menuRoot.transform, "MainMenu") ?? menuRoot;
+
+            if (nameInput == null)
+                nameInput = FindChildByName(menuRoot.transform, "NameInput")?.GetComponent<TMP_InputField>();
+
+            if (playButton == null)
+                playButton = FindButtonByName("PlayButton");
+            if (backButton == null)
+                backButton = FindButtonByName("BackButton");
+            if (createConfirmButton == null)
+                createConfirmButton = FindButtonByName("CreateConfirmButton");
+            if (joinSelectionButton == null)
+                joinSelectionButton = FindButtonByName("JoinSelectionButton");
+
+            if (createSessionNameInput == null)
+                createSessionNameInput = FindChildByName(menuRoot.transform, "CreateSessionNameInput")?.GetComponent<TMP_InputField>();
+            if (maxPlayersInput == null)
+                maxPlayersInput = FindChildByName(menuRoot.transform, "MaxPlayersInput")?.GetComponent<TMP_InputField>();
+            if (mapDropdown == null)
+                mapDropdown = FindChildByName(menuRoot.transform, "MapDropdown")?.GetComponent<TMP_Dropdown>();
+
+            EnsureNameInputPlacement();
         }
 
         private void EnsureSessionListRoot()
@@ -1016,7 +1057,7 @@ namespace NetGame
                         header.text = "Create Game";
                         header.fontSize = 18;
                         header.alignment = TextAlignmentOptions.Center;
-                        header.color = Color.white;
+                        header.color = Color.black;
                     }
 
                     if (createSessionNameInput == null)
@@ -1595,6 +1636,16 @@ namespace NetGame
             var text = button.GetComponentInChildren<TMP_Text>(true);
             if (text != null)
                 text.color = Color.black;
+
+            var colors = button.colors;
+            colors.normalColor = new Color(1f, 1f, 1f, 0.98f);
+            colors.highlightedColor = new Color(0.92f, 0.92f, 0.92f, 1f);
+            colors.pressedColor = new Color(0.85f, 0.85f, 0.85f, 1f);
+            colors.selectedColor = colors.highlightedColor;
+            colors.disabledColor = new Color(0.8f, 0.8f, 0.8f, 0.6f);
+            colors.colorMultiplier = 1f;
+            colors.fadeDuration = 0.08f;
+            button.colors = colors;
         }
 
         private void HideForeignPanels(Transform root, Transform contentRoot)
