@@ -17,6 +17,9 @@ namespace NetGame
     public class StartMenuUI : MonoBehaviour, INetworkRunnerCallbacks
     {
         private const string PlayerNameKey = "PlayerName";
+        private const string PlayerNameAutoKey = "PlayerNameAuto";
+        private const string MapIndexKey = "MapIndex";
+        private const string MapIndexAutoKey = "MapIndexAuto";
         private const string PropertyMap = "map";
         private const string PropertyHost = "host";
         [SerializeField] private string gameplaySceneName = "Gameplay";
@@ -44,6 +47,8 @@ namespace NetGame
         [SerializeField] private bool useRuntimeUI = false;
         [SerializeField] private string[] mapSceneNames;
         [SerializeField] private string[] mapDisplayNames;
+        [SerializeField] private bool randomizePlayerNameOnLaunch = true;
+        [SerializeField] private bool randomizeMapSelectionOnLaunch = true;
 
         public static string LocalPlayerName { get; private set; } = "Player";
 
@@ -488,6 +493,27 @@ namespace NetGame
                 options.Add(gameplaySceneName);
 
             mapDropdown.AddOptions(options);
+
+            mapDropdown.onValueChanged.RemoveListener(OnMapDropdownChanged);
+            mapDropdown.onValueChanged.AddListener(OnMapDropdownChanged);
+
+            if (options.Count > 1)
+            {
+                bool auto = PlayerPrefs.GetInt(MapIndexAutoKey, 1) == 1;
+                if (randomizeMapSelectionOnLaunch && auto)
+                {
+                    int idx = Random.Range(0, options.Count);
+                    mapDropdown.value = idx;
+                    PlayerPrefs.SetInt(MapIndexKey, idx);
+                    PlayerPrefs.SetInt(MapIndexAutoKey, 1);
+                    PlayerPrefs.Save();
+                }
+                else if (PlayerPrefs.HasKey(MapIndexKey))
+                {
+                    int idx = Mathf.Clamp(PlayerPrefs.GetInt(MapIndexKey, 0), 0, options.Count - 1);
+                    mapDropdown.value = idx;
+                }
+            }
         }
 
         private void CacheFallbackFont()
@@ -718,10 +744,15 @@ namespace NetGame
         private void InitializeName()
         {
             string saved = PlayerPrefs.GetString(PlayerNameKey, string.Empty);
-            if (string.IsNullOrWhiteSpace(saved) || IsLegacyRandomName(saved))
+            bool auto = PlayerPrefs.GetInt(PlayerNameAutoKey, 1) == 1;
+            if (randomizePlayerNameOnLaunch && auto)
+                saved = GenerateRandomName();
+            else if (string.IsNullOrWhiteSpace(saved) || IsLegacyRandomName(saved))
                 saved = GenerateRandomName();
 
             SetLocalName(saved);
+            PlayerPrefs.SetInt(PlayerNameAutoKey, 1);
+            PlayerPrefs.Save();
 
             if (nameInput != null)
                 nameInput.text = LocalPlayerName;
@@ -733,9 +764,18 @@ namespace NetGame
                 value = GenerateRandomName();
 
             SetLocalName(value);
+            PlayerPrefs.SetInt(PlayerNameAutoKey, 0);
+            PlayerPrefs.Save();
 
             if (nameInput != null && nameInput.text != LocalPlayerName)
                 nameInput.text = LocalPlayerName;
+        }
+
+        private void OnMapDropdownChanged(int index)
+        {
+            PlayerPrefs.SetInt(MapIndexKey, index);
+            PlayerPrefs.SetInt(MapIndexAutoKey, 0);
+            PlayerPrefs.Save();
         }
 
         private static void SetLocalName(string value)
