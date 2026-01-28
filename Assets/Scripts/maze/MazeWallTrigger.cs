@@ -3,13 +3,16 @@ using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
 
-public class MazeWallTrigger : MonoBehaviour
+public class MazeWallTrigger : NetworkBehaviour
 {
     [SerializeField] bool isLongX = false;
     [SerializeField] bool isLongZ = false;
 
     void OnTriggerEnter(Collider other)
     {
+        if (!Object.HasStateAuthority)
+            return;
+
         if (other.CompareTag("Player"))
         {
             MazeWallController controller = transform.parent.parent.GetComponent<MazeWallController>();
@@ -25,6 +28,9 @@ public class MazeWallTrigger : MonoBehaviour
 
     void OnTriggerExit(Collider other)
     {
+        if (!Object.HasStateAuthority)
+            return;
+    
         if (other.CompareTag("Player"))
         {
             MazeWallController controller = transform.parent.parent.GetComponent<MazeWallController>();

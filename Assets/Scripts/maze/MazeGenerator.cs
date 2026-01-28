@@ -14,6 +14,8 @@ class Wall
 
 public class MazeGenerator : MonoBehaviour
 {
+    private NetworkRunner _runner;
+
     [SerializeField] GameObject mazeCellPrefab;
     [SerializeField] GameObject mazeWallTopPrefab;
     [SerializeField] GameObject mazeWallLeftPrefab;
@@ -34,11 +36,24 @@ public class MazeGenerator : MonoBehaviour
     List<Wall> walls = new List<Wall>();
     List<int> nodeTree = new List<int>();
 
+    void Awake()
+    {
+        _runner = FindObjectOfType<NetworkRunner>();
+    }
+
     void Start()
     {
+        if (_runner == null) return;
+
         UnityEngine.Random.InitState(randomSeed);
 
         GenerateMazeShell();
+
+        if (!_runner.IsServer)
+        {
+            enable = false;
+            return;
+        }
 
         // init node tree
         for (int i = 0; i < mazeSize.x * mazeSize.y; i++)
@@ -102,6 +117,10 @@ public class MazeGenerator : MonoBehaviour
 
     void GenerateMazeShell()
     {
+        if(!_runner.IsServer)
+            return;
+
+        cellGOList.Clear();
         // generate maze cells
         for (int y = 0; y < mazeSize.y; y++)
         {
@@ -112,9 +131,10 @@ public class MazeGenerator : MonoBehaviour
                 cellPose.x = (mazeCellSize - wallThickness) * x + mazeOffset.x;
                 cellPose.z = (mazeCellSize - wallThickness) * y + mazeOffset.y;
                 cell.transform.position = cellPose;
-                
+
                 cell.transform.SetParent(mazeParent);
-                cellGOList.Add(cell);
+                NetworkObject cellNO = _runner.Spawn(mazeCellPrefab, cellPose, Quaternion.identity);
+                cellGOList.Add(cellNO.gameObject);  
             }   
         }   
         

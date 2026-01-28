@@ -6,12 +6,12 @@ using UnityEngine;
 
 public enum WallMode { Static, Rising, Falling };
 
-public class MazeWallController : MonoBehaviour
+public class MazeWallController : NetworkBehaviour
 {
     public WallMode modeX = WallMode.Static;
     public WallMode modeZ = WallMode.Static;
 
-    public int playersNearX = 0;
+    [Networked] public int playersNearX = 0;
     public int playersNearZ = 0;
     [SerializeField] GameObject longX;
     [SerializeField] GameObject longZ;
@@ -22,27 +22,31 @@ public class MazeWallController : MonoBehaviour
         if (modeX == WallMode.Rising)
         {
             Vector3 posX = longX.transform.position;
-            posX.y -= 2;
+            posX.y = -2f;
             longX.transform.position = posX;
         }
 
         if (modeZ == WallMode.Rising)
         {
             Vector3 posZ = longZ.transform.position;
-            posZ.y -= 2;
+            posZ.y = -2f;
             longZ.transform.position = posZ;
         }
     }
 
-    void Update()
+    public override void FixedUpdateNetwork()
     {
+        if (!Object.HasStateAuthority)
+            return;
+
+        float deltaTime = (float)Runner.DeltaTime;
+
         if (playersNearX > 0 && modeX == WallMode.Rising)
         {
             // rise wall by 4 with moveSpeed
             Vector3 posX = longX.transform.position;
             posX.y += moveSpeed * Time.deltaTime;
-            if (posX.y > 2)
-                posX.y = 2;
+            posX.y = Mathf.Clamp(posX.y, -2, 2);
             longX.transform.position = posX;
         }
         if (playersNearZ > 0 && modeZ == WallMode.Rising)
@@ -50,8 +54,7 @@ public class MazeWallController : MonoBehaviour
             // rise wall by 4 with moveSpeed
             Vector3 posZ = longZ.transform.position;
             posZ.y += moveSpeed * Time.deltaTime;
-            if (posZ.y > 2)
-                posZ.y = 2;
+            posZ.y = Mathf.Clamp(posZ.y, -2, 2);
             longZ.transform.position = posZ;
         }
         if (playersNearX == 0 && modeX == WallMode.Rising)
@@ -59,8 +62,7 @@ public class MazeWallController : MonoBehaviour
             // fall wall by 4 with moveSpeed
             Vector3 posX = longX.transform.position;
             posX.y -= moveSpeed * Time.deltaTime;
-            if (posX.y < -2)
-                posX.y = -2;
+            posX.y = Mathf.Clamp(posX.y, -2, 2);
             longX.transform.position = posX;
         }
         if (playersNearZ == 0 && modeZ == WallMode.Rising)
@@ -68,8 +70,7 @@ public class MazeWallController : MonoBehaviour
             // fall wall by 4 with moveSpeed
             Vector3 posZ = longZ.transform.position;
             posZ.y -= moveSpeed * Time.deltaTime;
-            if (posZ.y < -2)
-                posZ.y = -2;
+            posZ.y = Mathf.Clamp(posZ.y, -2, 2);
             longZ.transform.position = posZ;
         }
 
@@ -78,8 +79,7 @@ public class MazeWallController : MonoBehaviour
             // fall wall by 4 with moveSpeed
             Vector3 posX = longX.transform.position;
             posX.y -= moveSpeed * Time.deltaTime;
-            if (posX.y < -2)
-                posX.y = -2;
+            posX.y = Mathf.Clamp(posX.y, -2, 2);
             longX.transform.position = posX;
         }
         if (playersNearZ > 0 && modeZ == WallMode.Falling)
@@ -87,8 +87,7 @@ public class MazeWallController : MonoBehaviour
             // fall wall by 4 with moveSpeed
             Vector3 posZ = longZ.transform.position;
             posZ.y -= moveSpeed * Time.deltaTime;
-            if (posZ.y < -2)
-                posZ.y = -2;
+            posZ.y = Mathf.Clamp(posZ.y, -2, 2);
             longZ.transform.position = posZ;
         }
         if (playersNearX == 0 && modeX == WallMode.Falling)
@@ -96,8 +95,7 @@ public class MazeWallController : MonoBehaviour
             // rise wall by 4 with moveSpeed
             Vector3 posX = longX.transform.position;
             posX.y += moveSpeed * Time.deltaTime;
-            if (posX.y > 2)
-                posX.y = 2;
+            posX.y = Mathf.Clamp(posX.y, -2, 2);
             longX.transform.position = posX;
         }
         if (playersNearZ == 0 && modeZ == WallMode.Falling)
@@ -105,8 +103,7 @@ public class MazeWallController : MonoBehaviour
             // rise wall by 4 with moveSpeed
             Vector3 posZ = longZ.transform.position;
             posZ.y += moveSpeed * Time.deltaTime;
-            if (posZ.y > 2)
-                posZ.y = 2;
+            posZ.y = Mathf.Clamp(posZ.y, -2, 2);
             longZ.transform.position = posZ;
         }
     }
