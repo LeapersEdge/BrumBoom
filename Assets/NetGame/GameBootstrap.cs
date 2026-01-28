@@ -32,6 +32,8 @@ namespace NetGame
         private void Awake()
         {
             Instance = this;
+            if (GetComponent<InGamePauseMenu>() == null)
+                gameObject.AddComponent<InGamePauseMenu>();
         }
 
         public void AddSpawnPoint(Transform transform)
