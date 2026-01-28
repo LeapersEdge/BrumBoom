@@ -24,6 +24,10 @@ public class HUD_FromNetworkHealth : MonoBehaviour
             healthSlider.maxValue = target.MaxHealth;
         }
 
+        var netObj = target.Object;
+        if (netObj == null || !netObj.IsValid)
+            return;
+
         SetHudVisible(!target.IsEliminated);
 
         healthSlider.value = target.Health;
