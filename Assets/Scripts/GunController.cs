@@ -16,6 +16,10 @@ public class GunController : MonoBehaviour
     [SerializeField] private float rotationSpeed = 5f;
     [SerializeField] private float yawOffsetDegrees = 0f; // set 180 if model faces backward
 
+    [Header("Camera Constraints")]
+    [SerializeField] private float maxPitch = 60f;
+    [SerializeField] private float minPitch = -30f;
+
     [Header("Hitscan")]
     [SerializeField] private float fireRate = 0.1f;
     [SerializeField] private float range = 200f;
@@ -100,6 +104,15 @@ public class GunController : MonoBehaviour
         // Firing is handled by NetGunFire (server-authoritative projectiles)
     }
 
+    private void LateUpdate()
+    {
+        bool isLocal = _netObj == null || _netObj.HasInputAuthority;
+        if (isLocal)
+        {
+            ApplyCameraConstraints();
+        }
+    }
+
     private void FireHitscan()
     {
 
@@ -179,5 +192,17 @@ public class GunController : MonoBehaviour
 
         if (gameplayCamera != null && cameraTransform == null)
             cameraTransform = gameplayCamera.transform;
+    }
+
+    void ApplyCameraConstraints()
+    {
+        float currentPitch = cameraTransform.localEulerAngles.x;
+
+        if (currentPitch > 180f)
+            currentPitch -= 360f;
+
+        float clampedPitch = Mathf.Clamp(currentPitch, minPitch, maxPitch);
+
+        cameraTransform.localEulerAngles = new Vector3(clampedPitch, cameraTransform.localEulerAngles.y, cameraTransform.localEulerAngles.z);
     }
 }
