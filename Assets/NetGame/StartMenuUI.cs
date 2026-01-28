@@ -39,6 +39,8 @@ namespace NetGame
         [SerializeField] private TMP_Dropdown mapDropdown;
         [SerializeField] private Transform sessionListRoot;
         [SerializeField] private SessionListEntryUI sessionEntryPrefab;
+        [SerializeField] private Button joinSelectionButton;
+        [SerializeField] private TMP_Text noGamesLabel;
         [SerializeField] private string[] mapSceneNames;
         [SerializeField] private string[] mapDisplayNames;
 
@@ -47,7 +49,11 @@ namespace NetGame
         private bool _clicked;
         private NetworkRunner _lobbyRunner;
         private List<SessionInfo> _sessionList = new();
+        private readonly List<SessionListEntryUI> _sessionEntries = new();
+        private string _selectedSessionName;
         private bool _uiInitialized;
+        private bool _joinPanelBuilt;
+        private TMP_FontAsset _fallbackFont;
 
         private void Awake()
         {
@@ -89,6 +95,7 @@ namespace NetGame
             EnsureRuntimeUI();
             RefreshRuntimeBindings();
             ApplyTheme();
+            CacheFallbackFont();
             InitializeMapDropdown();
             ShowPlayMenu(false);
             HideLegacyButtons();
@@ -267,7 +274,16 @@ namespace NetGame
                 nameInput.gameObject.SetActive(!show);
 
             if (show)
+            {
+                if (joinPanel != null)
+                {
+                    BuildJoinPanelContent(joinPanel.transform);
+                    _joinPanelBuilt = true;
+                    RefreshJoinPanelReferences();
+                }
                 ShowCreatePanel(true);
+                RebuildSessionList();
+            }
         }
 
         private void ShowCreatePanel(bool create)
@@ -276,6 +292,7 @@ namespace NetGame
                 createPanel.SetActive(create);
             if (joinPanel != null)
                 joinPanel.SetActive(true);
+            UpdateJoinButtonState();
         }
 
         private void BackToMain()
@@ -469,6 +486,16 @@ namespace NetGame
             mapDropdown.AddOptions(options);
         }
 
+        private void CacheFallbackFont()
+        {
+            if (_fallbackFont != null)
+                return;
+
+            var anyText = GetComponentInChildren<TMP_Text>(true);
+            if (anyText != null)
+                _fallbackFont = anyText.font;
+        }
+
         private string GetSelectedMapScene()
         {
             if (mapSceneNames != null && mapSceneNames.Length > 0 && mapDropdown != null)
@@ -501,31 +528,155 @@ namespace NetGame
                     return;
             }
 
+            Debug.Log($"[StartMenuUI] Session list count: {(_sessionList == null ? 0 : _sessionList.Count)}");
             for (int i = sessionListRoot.childCount - 1; i >= 0; i--)
                 Destroy(sessionListRoot.GetChild(i).gameObject);
+            _sessionEntries.Clear();
 
             if (_sessionList == null || _sessionList.Count == 0)
             {
-                var empty = CreateText("NoGamesLabel", sessionListRoot);
-                empty.text = "No games available";
-                empty.fontSize = 18;
-                empty.alignment = TextAlignmentOptions.MidlineLeft;
-                empty.color = Color.white;
+                EnsureNoGamesLabel();
+                if (noGamesLabel != null)
+                {
+                    noGamesLabel.text = "No games available";
+                    noGamesLabel.gameObject.SetActive(true);
+                }
+                _selectedSessionName = null;
+                UpdateJoinButtonState();
+                ForceSessionListLayout();
                 return;
             }
+            if (noGamesLabel != null)
+                noGamesLabel.gameObject.SetActive(false);
 
             foreach (var info in _sessionList)
             {
                 if (!info.IsValid)
                     continue;
 
-                var entry = sessionEntryPrefab != null
-                    ? Instantiate(sessionEntryPrefab, sessionListRoot)
-                    : CreateRuntimeSessionEntry(sessionListRoot);
+                SessionListEntryUI entry = null;
+                if (sessionEntryPrefab != null)
+                    entry = Instantiate(sessionEntryPrefab, sessionListRoot);
+                if (entry == null || !entry.HasValidLayout())
+                {
+                    if (entry != null)
+                        Destroy(entry.gameObject);
+                    entry = CreateRuntimeSessionEntry(sessionListRoot);
+                }
                 string host = GetStringProperty(info, PropertyHost) ?? "Unknown";
                 string map = GetStringProperty(info, PropertyMap) ?? "Unknown";
-                entry.SetData(info.Name, host, map, $"{info.PlayerCount}/{info.MaxPlayers}", () => JoinSession(info));
+                entry.SetData(info.Name, $"Host: {host}", $"Map: {map}", $"Players: {info.PlayerCount}/{info.MaxPlayers}", () => SelectSession(info.Name));
+                entry.ApplyStyle();
+                entry.ApplyFont(_fallbackFont);
+                entry.EnsureVisible();
+                _sessionEntries.Add(entry);
             }
+
+            UpdateSelectionVisuals();
+            UpdateJoinButtonState();
+            ForceSessionListLayout();
+        }
+
+        private void EnsureNoGamesLabel()
+        {
+            if (sessionListRoot == null)
+                return;
+
+            if (noGamesLabel != null)
+                return;
+
+            var scroll = sessionListRoot.GetComponentInParent<ScrollRect>(true);
+            if (scroll == null)
+                return;
+
+            var parent = scroll.transform;
+            noGamesLabel = CreateText("NoGamesLabel", parent);
+            var rect = noGamesLabel.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(240, 26);
+            noGamesLabel.alignment = TextAlignmentOptions.Center;
+            noGamesLabel.fontSize = 16;
+            noGamesLabel.color = Color.black;
+            noGamesLabel.raycastTarget = false;
+        }
+
+        private void ForceSessionListLayout()
+        {
+            if (sessionListRoot == null)
+                return;
+
+            var scroll = sessionListRoot.GetComponentInParent<ScrollRect>(true);
+            if (scroll != null)
+                scroll.gameObject.SetActive(true);
+
+            sessionListRoot.gameObject.SetActive(true);
+            var rect = sessionListRoot.GetComponent<RectTransform>();
+            if (rect != null)
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+        }
+
+        private void SelectSession(string sessionName)
+        {
+            _selectedSessionName = sessionName;
+            UpdateSelectionVisuals();
+            UpdateJoinButtonState();
+        }
+
+        private void UpdateSelectionVisuals()
+        {
+            if (_sessionEntries == null || _sessionEntries.Count == 0)
+                return;
+
+            bool foundSelected = false;
+            foreach (var entry in _sessionEntries)
+            {
+                if (entry == null)
+                    continue;
+
+                bool selected = false;
+                if (!string.IsNullOrWhiteSpace(_selectedSessionName))
+                    selected = string.Equals(entry.GetGameName(), _selectedSessionName, System.StringComparison.Ordinal);
+                if (selected)
+                    foundSelected = true;
+
+                entry.SetSelected(selected);
+            }
+
+            if (!foundSelected && !string.IsNullOrWhiteSpace(_selectedSessionName))
+            {
+                _selectedSessionName = null;
+                UpdateJoinButtonState();
+            }
+        }
+
+        private void UpdateJoinButtonState()
+        {
+            if (joinSelectionButton != null)
+                joinSelectionButton.interactable = !string.IsNullOrWhiteSpace(_selectedSessionName);
+        }
+
+        private void JoinSelectedSession()
+        {
+            if (string.IsNullOrWhiteSpace(_selectedSessionName))
+                return;
+
+            if (_sessionList != null)
+            {
+                foreach (var info in _sessionList)
+                {
+                    if (info.IsValid && info.Name == _selectedSessionName)
+                    {
+                        JoinSession(info);
+                        return;
+                    }
+                }
+            }
+
+            Debug.LogWarning($"[StartMenuUI] Selected session '{_selectedSessionName}' no longer exists.");
+            _selectedSessionName = null;
+            UpdateJoinButtonState();
         }
 
         private void InitializeName()
@@ -695,6 +846,8 @@ namespace NetGame
 
             if (playMenuRoot != null)
                 sessionListRoot = FindChildByName(playMenuRoot.transform, "SessionListRoot")?.transform;
+            if (sessionListRoot == null && joinPanel != null)
+                sessionListRoot = FindChildByName(joinPanel.transform, "SessionListRoot")?.transform;
         }
 
         private void EnsureRuntimeUI()
@@ -878,48 +1031,45 @@ namespace NetGame
 
                 if (joinPanel != null)
                 {
-                    if (FindChildByName(joinPanel.transform, "JoinHeader") == null)
+                    var joinHeader = FindChildByName(joinPanel.transform, "JoinHeader");
+                    if (joinHeader != null)
+                        joinHeader.SetActive(false);
+
+                    if (!_joinPanelBuilt)
                     {
-                        var header = CreateText("JoinHeader", joinPanel.transform);
-                        header.text = "Open Games";
-                        header.fontSize = 18;
-                        header.alignment = TextAlignmentOptions.Center;
-                        header.color = Color.white;
+                        BuildJoinPanelContent(joinPanel.transform);
+                        _joinPanelBuilt = true;
                     }
 
-                    if (sessionListRoot == null)
-                    {
-                        var list = new GameObject("SessionListRoot");
-                        var rect = list.AddComponent<RectTransform>();
-                        rect.SetParent(joinPanel.transform, false);
-                        rect.sizeDelta = new Vector2(400, 240);
-                        var bg = list.AddComponent<Image>();
-                        bg.color = new Color(0f, 0f, 0f, 0.2f);
-                        var layout = list.AddComponent<VerticalLayoutGroup>();
-                        layout.childAlignment = TextAnchor.UpperCenter;
-                        layout.spacing = 6f;
-                        layout.childControlWidth = true;
-                        layout.childForceExpandWidth = true;
-                        var layoutElement = list.AddComponent<LayoutElement>();
-                        layoutElement.preferredWidth = 400;
-                        layoutElement.preferredHeight = 240;
-                        sessionListRoot = list.transform;
-                    }
-                    else if (sessionListRoot != null)
-                    {
-                        var rect = sessionListRoot.GetComponent<RectTransform>();
-                        if (rect != null)
-                            rect.sizeDelta = new Vector2(400, 240);
-                        var layoutElement = sessionListRoot.GetComponent<LayoutElement>();
-                        if (layoutElement == null)
-                            layoutElement = sessionListRoot.gameObject.AddComponent<LayoutElement>();
-                        layoutElement.preferredWidth = 400;
-                        layoutElement.preferredHeight = 240;
-                    }
+                    if (joinSelectionButton == null)
+                        joinSelectionButton = CreateButton("JoinSelectionButton", contentRoot.transform, "Join Selected");
+
+                    CleanupJoinPanel(joinPanel.transform);
                 }
 
+                var bottomRow = FindChildByName(contentRoot.transform, "BottomRow");
+                if (bottomRow == null)
+                {
+                    var rowGo = new GameObject("BottomRow");
+                    var rowRect = rowGo.AddComponent<RectTransform>();
+                    rowRect.SetParent(contentRoot.transform, false);
+                    rowRect.sizeDelta = new Vector2(420, 40);
+                    bottomRow = rowGo;
+
+                    var rowLayout = rowGo.AddComponent<HorizontalLayoutGroup>();
+                    rowLayout.childAlignment = TextAnchor.MiddleCenter;
+                    rowLayout.spacing = 12f;
+                    rowLayout.childControlWidth = true;
+                    rowLayout.childForceExpandWidth = false;
+                }
+
+                if (joinSelectionButton != null && joinSelectionButton.transform.parent != bottomRow.transform)
+                    joinSelectionButton.transform.SetParent(bottomRow.transform, false);
+
                 if (backButton == null)
-                    backButton = CreateButton("BackButton", contentRoot.transform, "Back");
+                    backButton = CreateButton("BackButton", bottomRow.transform, "Back");
+                else if (backButton.transform.parent != bottomRow.transform)
+                    backButton.transform.SetParent(bottomRow.transform, false);
                 if (backButton != null)
                 {
                     backButton.gameObject.SetActive(true);
@@ -944,6 +1094,20 @@ namespace NetGame
                     label.alignment = TextAlignmentOptions.Center;
                     label.fontSize = 16;
                     label.color = Color.white;
+                }
+
+                if (joinSelectionButton != null)
+                {
+                    var rect = joinSelectionButton.GetComponent<RectTransform>();
+                    if (rect != null)
+                        rect.sizeDelta = new Vector2(200, 34);
+                    var layout = joinSelectionButton.GetComponent<LayoutElement>();
+                    if (layout == null)
+                        layout = joinSelectionButton.gameObject.AddComponent<LayoutElement>();
+                    layout.preferredHeight = 34;
+                    layout.preferredWidth = 200;
+                    layout.minHeight = 34;
+                    layout.minWidth = 200;
                 }
             }
         }
@@ -972,6 +1136,12 @@ namespace NetGame
             {
                 backButton.onClick.RemoveListener(BackToMain);
                 backButton.onClick.AddListener(BackToMain);
+            }
+
+            if (joinSelectionButton != null)
+            {
+                joinSelectionButton.onClick.RemoveListener(JoinSelectedSession);
+                joinSelectionButton.onClick.AddListener(JoinSelectedSession);
             }
         }
 
@@ -1011,7 +1181,7 @@ namespace NetGame
                     continue;
 
                 if (button == playButton || button == createTabButton || button == joinTabButton ||
-                    button == createConfirmButton || button == backButton)
+                    button == createConfirmButton || button == backButton || button == joinSelectionButton)
                     continue;
 
                 if (sessionListRoot != null && button.transform.IsChildOf(sessionListRoot))
@@ -1056,33 +1226,134 @@ namespace NetGame
             return null;
         }
 
+        private static void CleanupJoinPanel(Transform joinPanelRoot)
+        {
+            if (joinPanelRoot == null)
+                return;
+
+            foreach (Transform child in joinPanelRoot)
+            {
+                if (child == null)
+                    continue;
+
+                if (child.name == "SessionListScroll" || child.name == "SessionListRoot")
+                    continue;
+
+                child.gameObject.SetActive(false);
+            }
+        }
+
+        private void BuildJoinPanelContent(Transform joinPanelRoot)
+        {
+            if (joinPanelRoot == null)
+                return;
+
+            for (int i = joinPanelRoot.childCount - 1; i >= 0; i--)
+                Destroy(joinPanelRoot.GetChild(i).gameObject);
+
+            var scrollGo = new GameObject("SessionListScroll");
+            var scrollRect = scrollGo.AddComponent<RectTransform>();
+            scrollRect.SetParent(joinPanelRoot, false);
+            scrollRect.sizeDelta = new Vector2(400, 240);
+            var scrollBg = scrollGo.AddComponent<Image>();
+            scrollBg.color = new Color(0.9f, 0.9f, 0.9f, 0.98f);
+            var scroll = scrollGo.AddComponent<ScrollRect>();
+
+            var content = new GameObject("SessionListRoot");
+            var contentRect = content.AddComponent<RectTransform>();
+            contentRect.SetParent(scrollGo.transform, false);
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.offsetMin = new Vector2(0f, 0f);
+            contentRect.offsetMax = new Vector2(0f, 0f);
+            var layout = content.AddComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperCenter;
+            layout.spacing = 6f;
+            layout.childControlWidth = true;
+            layout.childForceExpandWidth = true;
+            layout.childControlHeight = false;
+            layout.childForceExpandHeight = false;
+            var fitter = content.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scroll.content = contentRect;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 20f;
+
+            var layoutElement = scrollGo.AddComponent<LayoutElement>();
+            layoutElement.preferredWidth = 400;
+            layoutElement.preferredHeight = 240;
+
+            sessionListRoot = content.transform;
+            noGamesLabel = null;
+        }
+
+        private void RefreshJoinPanelReferences()
+        {
+            if (joinPanel == null)
+                return;
+
+            sessionListRoot = FindChildByName(joinPanel.transform, "SessionListRoot")?.transform;
+            noGamesLabel = null;
+        }
+
         private SessionListEntryUI CreateRuntimeSessionEntry(Transform parent)
         {
             var root = new GameObject("SessionEntry");
             var rect = root.AddComponent<RectTransform>();
             rect.SetParent(parent, false);
-            rect.sizeDelta = new Vector2(360, 40);
+            rect.sizeDelta = new Vector2(360, 82);
             var layoutElement = root.AddComponent<LayoutElement>();
             layoutElement.preferredWidth = 360;
-            layoutElement.preferredHeight = 40;
+            layoutElement.preferredHeight = 82;
             var bg = root.AddComponent<Image>();
-            bg.color = new Color(0f, 0f, 0f, 0.25f);
+            bg.color = new Color(1f, 1f, 1f, 0.98f);
 
-            var layout = root.AddComponent<HorizontalLayoutGroup>();
-            layout.childAlignment = TextAnchor.MiddleLeft;
+            var layout = root.AddComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperLeft;
             layout.childControlHeight = true;
             layout.childControlWidth = true;
             layout.childForceExpandHeight = false;
-            layout.childForceExpandWidth = false;
-            layout.spacing = 8;
+            layout.childForceExpandWidth = true;
+            layout.spacing = 2;
+            layout.padding = new RectOffset(8, 8, 6, 6);
 
             var entry = root.AddComponent<SessionListEntryUI>();
             var name = CreateText("GameName", root.transform);
-            var host = CreateText("HostName", root.transform);
-            var map = CreateText("MapName", root.transform);
-            var count = CreateText("Players", root.transform);
+            name.fontSize = 16;
+            name.alignment = TextAlignmentOptions.MidlineLeft;
+            name.color = Color.black;
 
-            entry.Bind(name, host, map, count, null);
+            var host = CreateText("HostName", root.transform);
+            host.fontSize = 14;
+            host.alignment = TextAlignmentOptions.MidlineLeft;
+            host.color = Color.black;
+
+            var row3 = new GameObject("Row3");
+            var rowRect = row3.AddComponent<RectTransform>();
+            rowRect.SetParent(root.transform, false);
+            var rowLayout = row3.AddComponent<HorizontalLayoutGroup>();
+            rowLayout.childAlignment = TextAnchor.MiddleLeft;
+            rowLayout.childControlHeight = true;
+            rowLayout.childControlWidth = true;
+            rowLayout.childForceExpandHeight = false;
+            rowLayout.childForceExpandWidth = true;
+            rowLayout.spacing = 10;
+            var rowLayoutElement = row3.AddComponent<LayoutElement>();
+            rowLayoutElement.preferredWidth = 360;
+            rowLayoutElement.minHeight = 18;
+
+            var map = CreateText("MapName", row3.transform);
+            map.fontSize = 14;
+            map.color = Color.black;
+            var count = CreateText("Players", row3.transform);
+            count.fontSize = 14;
+            count.color = Color.black;
+
+            entry.Bind(name, host, map, count, null, bg);
 
             return entry;
         }
@@ -1094,6 +1365,7 @@ namespace NetGame
             var text = go.AddComponent<TextMeshProUGUI>();
             text.fontSize = 18;
             text.alignment = TextAlignmentOptions.MidlineLeft;
+            text.color = Color.black;
             return text;
         }
 
@@ -1102,7 +1374,7 @@ namespace NetGame
             var go = new GameObject(label);
             go.transform.SetParent(parent, false);
             var img = go.AddComponent<Image>();
-            img.color = new Color(0.15f, 0.16f, 0.2f, 0.95f);
+            img.color = new Color(1f, 1f, 1f, 0.98f);
             var btn = go.AddComponent<Button>();
 
             var textGo = new GameObject("Text");
@@ -1111,7 +1383,7 @@ namespace NetGame
             text.text = label;
             text.alignment = TextAlignmentOptions.Center;
             text.fontSize = 16;
-            text.color = Color.white;
+            text.color = Color.black;
             return btn;
         }
 
@@ -1129,7 +1401,7 @@ namespace NetGame
             rect.SetParent(parent, false);
             rect.sizeDelta = size;
             var img = go.AddComponent<Image>();
-            img.color = new Color(0f, 0f, 0f, 0.45f);
+            img.color = new Color(0.92f, 0.92f, 0.92f, 0.98f);
             return go;
         }
 
@@ -1141,7 +1413,7 @@ namespace NetGame
             label.text = text;
             label.fontSize = 18;
             label.alignment = TextAlignmentOptions.MidlineLeft;
-            label.color = Color.white;
+            label.color = Color.black;
             return label;
         }
 
@@ -1305,6 +1577,7 @@ namespace NetGame
             ApplyButtonTheme(joinTabButton);
             ApplyButtonTheme(createConfirmButton);
             ApplyButtonTheme(backButton);
+            ApplyButtonTheme(joinSelectionButton);
             ApplyButtonTheme(hostButton);
             ApplyButtonTheme(clientButton);
             ApplyButtonTheme(autoButton);
@@ -1317,11 +1590,11 @@ namespace NetGame
 
             var img = button.GetComponent<Image>();
             if (img != null)
-                img.color = new Color(0.15f, 0.16f, 0.2f, 0.95f);
+                img.color = new Color(1f, 1f, 1f, 0.98f);
 
             var text = button.GetComponentInChildren<TMP_Text>(true);
             if (text != null)
-                text.color = Color.white;
+                text.color = Color.black;
         }
 
         private void HideForeignPanels(Transform root, Transform contentRoot)
