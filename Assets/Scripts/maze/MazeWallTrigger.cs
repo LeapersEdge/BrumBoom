@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using Fusion;
 
 public class MazeWallTrigger : NetworkBehaviour
 {
@@ -10,7 +11,7 @@ public class MazeWallTrigger : NetworkBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        if (!Object.HasStateAuthority)
+        if (!this.Object.HasStateAuthority)
             return;
 
         if (other.CompareTag("Player"))
@@ -28,7 +29,7 @@ public class MazeWallTrigger : NetworkBehaviour
 
     void OnTriggerExit(Collider other)
     {
-        if (!Object.HasStateAuthority)
+        if (!this.Object.HasStateAuthority)
             return;
     
         if (other.CompareTag("Player"))

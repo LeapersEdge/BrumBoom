@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using NetGame;
 using Unity.VisualScripting;
 using UnityEngine;
+using Fusion;
 
 [Serializable]
 class Wall
@@ -12,7 +13,7 @@ class Wall
     public int node2;
 }
 
-public class MazeGenerator : MonoBehaviour
+public class MazeGenerator : NetworkBehaviour
 {
     private NetworkRunner _runner;
 
@@ -41,19 +42,14 @@ public class MazeGenerator : MonoBehaviour
         _runner = FindObjectOfType<NetworkRunner>();
     }
 
-    void Start()
+    public override void Spawned()
     {
-        if (_runner == null) return;
+        if (!Runner.IsServer)
+            return;
 
         UnityEngine.Random.InitState(randomSeed);
 
         GenerateMazeShell();
-
-        if (!_runner.IsServer)
-        {
-            enable = false;
-            return;
-        }
 
         // init node tree
         for (int i = 0; i < mazeSize.x * mazeSize.y; i++)
@@ -92,11 +88,8 @@ public class MazeGenerator : MonoBehaviour
         }
 
 
-        if (cullWalls)
-        {
-            GenerateMaze();
-            ModifyWalls();
-        }
+        GenerateMaze();
+        ModifyWalls();
 
         // generate spawn points
         GameBootstrap gameBootstrap = GameObject.Find("GameBootstrap").GetComponent<GameBootstrap>();
@@ -126,14 +119,12 @@ public class MazeGenerator : MonoBehaviour
         {
             for (int x = 0; x < mazeSize.x; x++)
             {
-                GameObject cell = Instantiate(mazeCellPrefab);
-                Vector3 cellPose = cell.transform.position;
+                Vector3 cellPose = Vector3.zero;
                 cellPose.x = (mazeCellSize - wallThickness) * x + mazeOffset.x;
                 cellPose.z = (mazeCellSize - wallThickness) * y + mazeOffset.y;
-                cell.transform.position = cellPose;
 
-                cell.transform.SetParent(mazeParent);
                 NetworkObject cellNO = _runner.Spawn(mazeCellPrefab, cellPose, Quaternion.identity);
+                cellNO.transform.SetParent(mazeParent);
                 cellGOList.Add(cellNO.gameObject);  
             }   
         }   
@@ -142,34 +133,31 @@ public class MazeGenerator : MonoBehaviour
         for (int y = 0; y < mazeSize.y; y++)
         {
             // top
-            GameObject wall = Instantiate(mazeWallTopPrefab);
-            Vector3 wallPose = wall.transform.position;
+
+            Vector3 wallPose = Vector3.zero;
             wallPose.x = -mazeCellSize/2.0f +wallThickness/2.0f;
             wallPose.z = mazeCellSize * y + mazeOffset.y -mazeCellSize/2.0f;
-            wall.transform.position = wallPose;
+            NetworkObject wall = _runner.Spawn(mazeWallTopPrefab, wallPose, Quaternion.identity);
             wall.transform.SetParent(mazeParent);
-        
-            GameObject wall2 = Instantiate(mazeWallTopPrefab);
-            Vector3 wallPose2 = wall2.transform.position;
+
+            Vector3 wallPose2 = Vector3.zero;
             wallPose2.x = (mazeCellSize - wallThickness)*(mazeSize.x - 1) + mazeOffset.x + mazeCellSize/2.0f - wallThickness/2.0f;
             wallPose2.z = mazeCellSize * y + mazeOffset.y -mazeCellSize/2.0f;
-            wall2.transform.position = wallPose2;
+            NetworkObject wall2 = _runner.Spawn(mazeWallTopPrefab, wallPose2, Quaternion.identity);
             wall2.transform.SetParent(mazeParent);
         }
         for (int x = 0; x < mazeSize.x; x++)
         {
-            GameObject wall3 = Instantiate(mazeWallLeftPrefab);
-            Vector3 wallPose3 = wall3.transform.position;
+            Vector3 wallPose3 = Vector3.zero;
             wallPose3.x = mazeCellSize * x + mazeOffset.x;
             wallPose3.z = (mazeCellSize - wallThickness)*(mazeSize.y - 1) + mazeOffset.y;
-            wall3.transform.position = wallPose3;
+            NetworkObject wall3 = _runner.Spawn(mazeWallLeftPrefab, wallPose3, Quaternion.identity);
             wall3.transform.SetParent(mazeParent);
 
-            GameObject wall4 = Instantiate(mazeWallLeftPrefab);
-            Vector3 wallPose4 = wall4.transform.position;
+            Vector3 wallPose4 = Vector3.zero;
             wallPose4.x = mazeCellSize * x + mazeOffset.x;
             wallPose4.z = -mazeCellSize/2.0f -wallThickness/2.0f-wallThickness;
-            wall4.transform.position = wallPose4;
+            NetworkObject wall4 = _runner.Spawn(mazeWallLeftPrefab, wallPose4, Quaternion.identity);
             wall4.transform.SetParent(mazeParent);
         }
     }

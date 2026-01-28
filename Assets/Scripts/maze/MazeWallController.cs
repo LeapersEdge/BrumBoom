@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
+using Fusion;
 
 public enum WallMode { Static, Rising, Falling };
 
@@ -11,8 +12,8 @@ public class MazeWallController : NetworkBehaviour
     public WallMode modeX = WallMode.Static;
     public WallMode modeZ = WallMode.Static;
 
-    [Networked] public int playersNearX = 0;
-    public int playersNearZ = 0;
+    [Networked] public int playersNearX { get; set; } = 0;
+    [Networked] public int playersNearZ { get; set; } = 0;
     [SerializeField] GameObject longX;
     [SerializeField] GameObject longZ;
     public float moveSpeed = 10;
@@ -36,16 +37,16 @@ public class MazeWallController : NetworkBehaviour
 
     public override void FixedUpdateNetwork()
     {
-        if (!Object.HasStateAuthority)
+        if (!this.Object.HasStateAuthority)
             return;
 
-        float deltaTime = (float)Runner.DeltaTime;
+        float deltaTime = (float)this.Runner.DeltaTime;
 
         if (playersNearX > 0 && modeX == WallMode.Rising)
         {
             // rise wall by 4 with moveSpeed
             Vector3 posX = longX.transform.position;
-            posX.y += moveSpeed * Time.deltaTime;
+            posX.y += moveSpeed * deltaTime;
             posX.y = Mathf.Clamp(posX.y, -2, 2);
             longX.transform.position = posX;
         }
@@ -53,7 +54,7 @@ public class MazeWallController : NetworkBehaviour
         {
             // rise wall by 4 with moveSpeed
             Vector3 posZ = longZ.transform.position;
-            posZ.y += moveSpeed * Time.deltaTime;
+            posZ.y += moveSpeed * deltaTime;
             posZ.y = Mathf.Clamp(posZ.y, -2, 2);
             longZ.transform.position = posZ;
         }
@@ -61,7 +62,7 @@ public class MazeWallController : NetworkBehaviour
         {
             // fall wall by 4 with moveSpeed
             Vector3 posX = longX.transform.position;
-            posX.y -= moveSpeed * Time.deltaTime;
+            posX.y -= moveSpeed * deltaTime;
             posX.y = Mathf.Clamp(posX.y, -2, 2);
             longX.transform.position = posX;
         }
@@ -69,7 +70,7 @@ public class MazeWallController : NetworkBehaviour
         {
             // fall wall by 4 with moveSpeed
             Vector3 posZ = longZ.transform.position;
-            posZ.y -= moveSpeed * Time.deltaTime;
+            posZ.y -= moveSpeed * deltaTime;
             posZ.y = Mathf.Clamp(posZ.y, -2, 2);
             longZ.transform.position = posZ;
         }
@@ -78,7 +79,7 @@ public class MazeWallController : NetworkBehaviour
         {
             // fall wall by 4 with moveSpeed
             Vector3 posX = longX.transform.position;
-            posX.y -= moveSpeed * Time.deltaTime;
+            posX.y -= moveSpeed * deltaTime;
             posX.y = Mathf.Clamp(posX.y, -2, 2);
             longX.transform.position = posX;
         }
@@ -86,7 +87,7 @@ public class MazeWallController : NetworkBehaviour
         {
             // fall wall by 4 with moveSpeed
             Vector3 posZ = longZ.transform.position;
-            posZ.y -= moveSpeed * Time.deltaTime;
+            posZ.y -= moveSpeed * deltaTime;
             posZ.y = Mathf.Clamp(posZ.y, -2, 2);
             longZ.transform.position = posZ;
         }
@@ -94,7 +95,7 @@ public class MazeWallController : NetworkBehaviour
         {
             // rise wall by 4 with moveSpeed
             Vector3 posX = longX.transform.position;
-            posX.y += moveSpeed * Time.deltaTime;
+            posX.y += moveSpeed * deltaTime;
             posX.y = Mathf.Clamp(posX.y, -2, 2);
             longX.transform.position = posX;
         }
@@ -102,7 +103,7 @@ public class MazeWallController : NetworkBehaviour
         {
             // rise wall by 4 with moveSpeed
             Vector3 posZ = longZ.transform.position;
-            posZ.y += moveSpeed * Time.deltaTime;
+            posZ.y += moveSpeed * deltaTime;
             posZ.y = Mathf.Clamp(posZ.y, -2, 2);
             longZ.transform.position = posZ;
         }
