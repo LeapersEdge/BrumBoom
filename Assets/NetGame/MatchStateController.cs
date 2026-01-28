@@ -26,6 +26,7 @@ namespace NetGame
         private bool _initialized;
         private bool _ghostApplied;
         private int _maxPlayersSeen;
+        private int _maxAliveSeen;
 
         private void Awake()
         {
@@ -52,7 +53,9 @@ namespace NetGame
             else if (_state == MatchState.Running)
             {
                 int alive = CountAlivePlayers();
-                if (_maxPlayersSeen > 1 && alive <= 1)
+                if (alive > _maxAliveSeen)
+                    _maxAliveSeen = alive;
+                if (_maxAliveSeen > 1 && alive <= 1)
                     SetState(MatchState.Finished);
             }
 
@@ -84,6 +87,7 @@ namespace NetGame
             {
                 _state = MatchState.Waiting;
             }
+            _maxAliveSeen = CountAlivePlayers();
 
             ApplyStateEffects();
         }
@@ -160,7 +164,10 @@ namespace NetGame
             int alive = 0;
             foreach (var nh in FindObjectsOfType<NetworkHealth>())
             {
-                if (nh != null && !nh.IsEliminated)
+                var no = nh != null ? nh.Object : null;
+                if (no == null || !no.IsValid)
+                    continue;
+                if (!nh.IsEliminated)
                     alive++;
             }
             return alive;
