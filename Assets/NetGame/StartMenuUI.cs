@@ -22,7 +22,7 @@ namespace NetGame
         private const string MapIndexAutoKey = "MapIndexAuto";
         private const string PropertyMap = "map";
         private const string PropertyHost = "host";
-        [SerializeField] private string gameplaySceneName = "Gameplay";
+        [SerializeField] private string gameplaySceneName = "Gameplay"; // Fallback scene name
         [SerializeField] private Button hostButton;
         [SerializeField] private Button clientButton;
         [SerializeField] private Button autoButton;
@@ -61,8 +61,19 @@ namespace NetGame
         private bool _joinPanelBuilt;
         private TMP_FontAsset _fallbackFont;
 
+        private static StartMenuUI _instance;
+
         private void Awake()
         {
+            // Singleton pattern - destroy duplicates when returning to menu scene
+            if (_instance != null && _instance != this)
+            {
+                Debug.Log("[StartMenuUI] Destroying duplicate StartMenuUI instance");
+                Destroy(gameObject);
+                return;
+            }
+            _instance = this;
+
             // Keep this GO alive across scene load so coroutine survives.
             DontDestroyOnLoad(gameObject);
             SceneManager.sceneLoaded += OnSceneLoaded;
@@ -112,6 +123,9 @@ namespace NetGame
 
         private void OnDestroy()
         {
+            if (_instance == this)
+                _instance = null;
+
             SceneManager.sceneLoaded -= OnSceneLoaded;
             if (hostButton != null)
                 hostButton.onClick.RemoveListener(OnHostClicked);
@@ -194,6 +208,20 @@ namespace NetGame
                 nameInput.gameObject.SetActive(false);
         }
 
+        private void ShowMenuUI()
+        {
+            if (menuRoot != null && menuRoot != gameObject)
+            {
+                menuRoot.SetActive(true);
+                return;
+            }
+
+            if (mainButtonsRoot != null)
+                mainButtonsRoot.SetActive(true);
+            if (nameInput != null)
+                nameInput.gameObject.SetActive(true);
+        }
+
         private void EnsureNameInputPlacement()
         {
             if (nameInput == null || mainButtonsRoot == null)
@@ -208,11 +236,16 @@ namespace NetGame
             _clicked = true;
             SetButtonsInteractable(false);
 
+            // Get the selected scene name from dropdown
+            string targetScene = GetSelectedMapScene();
+            
+            Debug.Log($"[StartMenuUI] Loading scene: {targetScene}");
+
             // load gameplay scene
-            int buildIndex = GetBuildIndexByName(gameplaySceneName);
+            int buildIndex = GetBuildIndexByName(targetScene);
             if (buildIndex < 0)
             {
-                Debug.LogError($"[StartMenuUI] Scene '{gameplaySceneName}' not found in Build Settings.");
+                Debug.LogError($"[StartMenuUI] Scene '{targetScene}' not found in Build Settings.");
                 LogBuildScenes();
                 ResetClickGate();
                 yield break;
@@ -221,7 +254,7 @@ namespace NetGame
             var op = SceneManager.LoadSceneAsync(buildIndex, LoadSceneMode.Single);
             if (op == null)
             {
-                Debug.LogError($"[StartMenuUI] Failed to load scene '{gameplaySceneName}'. Is it in Build Settings?");
+                Debug.LogError($"[StartMenuUI] Failed to load scene '{targetScene}'. Is it in Build Settings?");
                 ResetClickGate();
                 yield break;
             }
@@ -496,6 +529,33 @@ namespace NetGame
 
             mapDropdown.onValueChanged.RemoveListener(OnMapDropdownChanged);
             mapDropdown.onValueChanged.AddListener(OnMapDropdownChanged);
+            
+            // Fix dropdown template rendering issue in DontDestroyOnLoad canvas
+            if (mapDropdown.template != null)
+            {
+                // Ensure the template is active initially so it can be properly initialized
+                var templateGo = mapDropdown.template.gameObject;
+                bool wasActive = templateGo.activeSelf;
+                templateGo.SetActive(true);
+                
+                // Make sure the template has a Canvas component for proper rendering
+                var templateCanvas = templateGo.GetComponent<Canvas>();
+                if (templateCanvas == null)
+                {
+                    templateCanvas = templateGo.AddComponent<Canvas>();
+                    templateCanvas.overrideSorting = true;
+                    templateCanvas.sortingOrder = 30000; // Very high sorting order to appear on top
+                }
+                
+                // Add GraphicRaycaster if missing
+                if (templateGo.GetComponent<GraphicRaycaster>() == null)
+                {
+                    templateGo.AddComponent<GraphicRaycaster>();
+                }
+                
+                // Restore original active state
+                templateGo.SetActive(wasActive);
+            }
 
             if (options.Count > 1)
             {
@@ -1137,7 +1197,12 @@ namespace NetGame
                     if (maxPlayersInput == null)
                         maxPlayersInput = CreateInputField("MaxPlayersInput", createPanel.transform, "Max players (e.g. 8)");
                     if (mapDropdown == null)
+                    {
                         mapDropdown = CreateDropdown("MapDropdown", createPanel.transform);
+                        mapDropdown.onValueChanged.AddListener((value) => {
+                            Debug.Log($"Dropdown value changed to {value}. Template active: {mapDropdown.template.gameObject.activeSelf}");
+                        });
+                    }
                     if (createConfirmButton == null)
                         createConfirmButton = CreateButton("CreateConfirmButton", createPanel.transform, "Create");
                 }
@@ -1261,11 +1326,46 @@ namespace NetGame
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             Debug.Log($"[StartMenuUI] Scene loaded: '{scene.name}' mode={mode}");
-            if (string.IsNullOrWhiteSpace(gameplaySceneName))
-                return;
-
-            if (scene.name == gameplaySceneName)
+            
+            // Check if we loaded a gameplay scene (hide menu)
+            bool isGameplayScene = false;
+            
+            // Check against all configured map scenes
+            if (mapSceneNames != null)
+            {
+                foreach (var mapScene in mapSceneNames)
+                {
+                    if (scene.name == mapScene)
+                    {
+                        isGameplayScene = true;
+                        break;
+                    }
+                }
+            }
+            
+            // Also check the legacy gameplaySceneName
+            if (!string.IsNullOrWhiteSpace(gameplaySceneName) && scene.name == gameplaySceneName)
+            {
+                isGameplayScene = true;
+            }
+            
+            if (isGameplayScene)
+            {
                 HideMenuUI();
+            }
+            else
+            {
+                // Returned to menu scene - show the menu again
+                ShowMenuUI();
+                
+                // Reset UI state
+                ShowPlayMenu(false);
+                ResetClickGate();
+                
+                // Unlock cursor
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
         }
 
         private bool HasAnySessions()
@@ -1612,11 +1712,23 @@ namespace NetGame
             var template = new GameObject("Template");
             var templateRect = template.AddComponent<RectTransform>();
             templateRect.SetParent(go.transform, false);
-            templateRect.sizeDelta = new Vector2(0, 200);
+    
+            templateRect.anchorMin = new Vector2(0f, 0f);  // Anchor to bottom-left
+            templateRect.anchorMax = new Vector2(1f, 0f);  // Stretch width, anchor height to bottom
+            templateRect.pivot = new Vector2(0.5f, 1f);    // Pivot from top-center (drops downward)
+            templateRect.anchoredPosition = new Vector2(0f, 0f);  // Position directly below
+            templateRect.sizeDelta = new Vector2(0f, 200f);  // Width matches parent, fixed height
+    
             var templateImg = template.AddComponent<Image>();
             templateImg.color = new Color(1f, 1f, 1f, 0.95f);
             var scrollRect = template.AddComponent<ScrollRect>();
             template.SetActive(false);
+
+            // Add Canvas and GraphicRaycaster here too (similar to your InitializeMapDropdown fix)
+            var templateCanvas = template.AddComponent<Canvas>();
+            templateCanvas.overrideSorting = true;
+            templateCanvas.sortingOrder = 30000;  // High order to appear on top
+            template.AddComponent<GraphicRaycaster>();
 
             var viewport = new GameObject("Viewport");
             var viewportRect = viewport.AddComponent<RectTransform>();
@@ -1626,7 +1738,8 @@ namespace NetGame
             viewportRect.offsetMin = Vector2.zero;
             viewportRect.offsetMax = Vector2.zero;
             viewport.AddComponent<Image>().color = new Color(1f, 1f, 1f, 0.95f);
-            viewport.AddComponent<Mask>().showMaskGraphic = false;
+            var mask = viewport.AddComponent<Mask>();
+            mask.showMaskGraphic = false;
 
             var content = new GameObject("Content");
             var contentRect = content.AddComponent<RectTransform>();
@@ -1634,6 +1747,8 @@ namespace NetGame
             contentRect.anchorMin = new Vector2(0f, 1f);
             contentRect.anchorMax = new Vector2(1f, 1f);
             contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.offsetMin = new Vector2(0f, 0f);
+            contentRect.offsetMax = new Vector2(0f, 0f);
             var contentLayout = content.AddComponent<VerticalLayoutGroup>();
             contentLayout.childAlignment = TextAnchor.UpperLeft;
             contentLayout.childControlHeight = true;
@@ -1641,6 +1756,41 @@ namespace NetGame
             contentLayout.childForceExpandHeight = false;
             contentLayout.childForceExpandWidth = true;
             content.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            // Optional: Add vertical scrollbar for long lists
+            var scrollbarGo = new GameObject("Scrollbar Vertical");
+            var scrollbarRect = scrollbarGo.AddComponent<RectTransform>();
+            scrollbarRect.SetParent(template.transform, false);
+            scrollbarRect.anchorMin = new Vector2(1f, 0f);
+            scrollbarRect.anchorMax = new Vector2(1f, 1f);
+            scrollbarRect.sizeDelta = new Vector2(20f, 0f);
+            scrollbarRect.anchoredPosition = new Vector2(0f, 0f);
+            var scrollbarImg = scrollbarGo.AddComponent<Image>();
+            scrollbarImg.color = new Color(0.9f, 0.9f, 0.9f, 1f);
+            var scrollbar = scrollbarGo.AddComponent<Scrollbar>();
+            scrollbar.direction = Scrollbar.Direction.BottomToTop;
+
+            var slidingArea = new GameObject("Sliding Area");
+            slidingArea.transform.SetParent(scrollbarGo.transform, false);
+            var slidingRect = slidingArea.AddComponent<RectTransform>();
+            slidingRect.anchorMin = Vector2.zero;
+            slidingRect.anchorMax = Vector2.one;
+            slidingRect.offsetMin = new Vector2(5f, 5f);
+            slidingRect.offsetMax = new Vector2(-5f, -5f);
+
+            var handle = new GameObject("Handle");
+            handle.transform.SetParent(slidingArea.transform, false);
+            var handleRect = handle.AddComponent<RectTransform>();
+            handleRect.anchorMin = Vector2.zero;
+            handleRect.anchorMax = Vector2.one;
+            handleRect.offsetMin = Vector2.zero;
+            handleRect.offsetMax = Vector2.zero;
+            handle.AddComponent<Image>().color = new Color(0.75f, 0.75f, 0.75f, 1f);
+
+            scrollbar.targetGraphic = handle.GetComponent<Image>();
+            scrollbar.handleRect = handleRect;
+            scrollRect.verticalScrollbar = scrollbar;
+            scrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
 
             scrollRect.content = contentRect;
             scrollRect.viewport = viewportRect;
@@ -1670,8 +1820,12 @@ namespace NetGame
             dropdown.template = templateRect;
             dropdown.captionText = label;
             dropdown.itemText = itemLabel;
-            dropdown.itemImage = null;
             dropdown.targetGraphic = img;
+
+            // Force initialization by toggling active state
+            template.SetActive(true);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(templateRect);
+            template.SetActive(false);
 
             return dropdown;
         }
