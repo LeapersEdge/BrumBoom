@@ -174,6 +174,17 @@ namespace NetGame
                 playMenuRoot.SetActive(false);
             if (mainButtonsRoot != null)
                 mainButtonsRoot.SetActive(false);
+            if (nameInput != null)
+                nameInput.gameObject.SetActive(false);
+        }
+
+        private void EnsureNameInputPlacement()
+        {
+            if (nameInput == null || mainButtonsRoot == null)
+                return;
+
+            if (nameInput.transform.parent != mainButtonsRoot.transform)
+                nameInput.transform.SetParent(mainButtonsRoot.transform, false);
         }
 
         private System.Collections.IEnumerator LoadAndStart(GameMode mode)
@@ -252,6 +263,8 @@ namespace NetGame
                 mainButtonsRoot.SetActive(!show);
             if (playMenuRoot != null)
                 playMenuRoot.SetActive(show);
+            if (nameInput != null)
+                nameInput.gameObject.SetActive(!show);
 
             if (show)
                 ShowCreatePanel(true);
@@ -703,6 +716,7 @@ namespace NetGame
                 label.alignment = TextAlignmentOptions.MidlineLeft;
                 nameInput = CreateInputField("NameInput", nameBlock.transform, "Enter name...");
             }
+            EnsureNameInputPlacement();
 
             if (playButton == null && mainButtonsRoot != null)
             {
@@ -916,6 +930,9 @@ namespace NetGame
                     if (layout == null)
                         layout = backButton.gameObject.AddComponent<LayoutElement>();
                     layout.preferredHeight = 34;
+                    layout.preferredWidth = 200;
+                    layout.minHeight = 34;
+                    layout.minWidth = 200;
                     var label = backButton.GetComponentInChildren<TMP_Text>(true);
                     if (label == null)
                     {

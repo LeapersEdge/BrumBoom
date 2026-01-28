@@ -76,9 +76,7 @@ namespace NetGame
             canvasRect.localScale = Vector3.one * scale;
 
             _root = canvasRect;
-            _uiSprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/UISprite.psd");
-            if (_uiSprite == null)
-                _uiSprite = GetFallbackSprite();
+            _uiSprite = GetFallbackSprite();
 
             // Name text
             var nameGo = new GameObject("Name");
