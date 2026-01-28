@@ -767,6 +767,26 @@ PrefabInstance:
       propertyPath: m_fontColor32.rgba
       value: 4294967295
       objectReference: {fileID: 0}
+    - target: {fileID: 4909840178168085703, guid: 56ce0b66b7c583b4ead9a378a1ac4080, type: 3}
+      propertyPath: mapSceneNames.Array.size
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 4909840178168085703, guid: 56ce0b66b7c583b4ead9a378a1ac4080, type: 3}
+      propertyPath: mapDisplayNames.Array.size
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 4909840178168085703, guid: 56ce0b66b7c583b4ead9a378a1ac4080, type: 3}
+      propertyPath: mapSceneNames.Array.data[2]
+      value: TheShipyard
+      objectReference: {fileID: 0}
+    - target: {fileID: 4909840178168085703, guid: 56ce0b66b7c583b4ead9a378a1ac4080, type: 3}
+      propertyPath: mapDisplayNames.Array.data[2]
+      value: TheShipyard
+      objectReference: {fileID: 0}
+    - target: {fileID: 4909840178168085703, guid: 56ce0b66b7c583b4ead9a378a1ac4080, type: 3}
+      propertyPath: mapDisplayNames.Array.data[3]
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 4961509289591128018, guid: 56ce0b66b7c583b4ead9a378a1ac4080, type: 3}
       propertyPath: m_fontColor.b
       value: 1
