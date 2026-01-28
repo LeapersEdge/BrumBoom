@@ -657,8 +657,24 @@ namespace NetGame
 
         private void UpdateJoinButtonState()
         {
-            if (joinSelectionButton != null)
-                joinSelectionButton.interactable = !string.IsNullOrWhiteSpace(_selectedSessionName);
+            if (joinSelectionButton == null)
+                return;
+
+            if (string.IsNullOrWhiteSpace(_selectedSessionName))
+            {
+                joinSelectionButton.interactable = false;
+                return;
+            }
+
+            var info = GetSelectedSessionInfo();
+            if (info == null)
+            {
+                joinSelectionButton.interactable = false;
+                return;
+            }
+
+            bool isFull = info.PlayerCount >= info.MaxPlayers;
+            joinSelectionButton.interactable = !isFull;
         }
 
         private void JoinSelectedSession()
@@ -681,6 +697,20 @@ namespace NetGame
             Debug.LogWarning($"[StartMenuUI] Selected session '{_selectedSessionName}' no longer exists.");
             _selectedSessionName = null;
             UpdateJoinButtonState();
+        }
+
+        private SessionInfo? GetSelectedSessionInfo()
+        {
+            if (_sessionList == null || string.IsNullOrWhiteSpace(_selectedSessionName))
+                return null;
+
+            foreach (var info in _sessionList)
+            {
+                if (info.IsValid && info.Name == _selectedSessionName)
+                    return info;
+            }
+
+            return null;
         }
 
         private void InitializeName()
